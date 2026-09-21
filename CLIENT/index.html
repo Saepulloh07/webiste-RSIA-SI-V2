@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- Environment & Browser Compatibility: Prevent read-only fetch getter errors -->
+    <script>
+      (function() {
+        try {
+          var origFetch = window.fetch ? window.fetch.bind(window) : undefined;
+          var curFetch = origFetch;
+          Object.defineProperty(window, 'fetch', {
+            get: function() { return curFetch; },
+            set: function(fn) { curFetch = fn; },
+            configurable: true,
+            enumerable: true
+          });
+        } catch (e) {
+          try {
+            var proto = Object.getPrototypeOf(window);
+            if (proto) {
+              var pFetch = proto.fetch ? proto.fetch.bind(window) : undefined;
+              var curPFetch = pFetch;
+              Object.defineProperty(proto, 'fetch', {
+                get: function() { return curPFetch; },
+                set: function(fn) { curPFetch = fn; },
+                configurable: true,
+                enumerable: true
+              });
+            }
+          } catch (err) {}
+        }
+      })();
+    </script>
+    
+    <!-- Primary SEO Meta Tags -->
+    <title>RSIA Sayang Ibu Batusangkar - Rumah Sakit Ibu & Anak Terbaik Tanah Datar</title>
+    <meta name="description" content="RSIA Sayang Ibu Batusangkar adalah rumah sakit ibu dan anak terbaik di Kabupaten Tanah Datar, Sumatera Barat. Layanan dokter spesialis kandungan (obgyn), spesialis anak, persalinan caesar ERACS, USG 4D fetomaternal, dan IGD 24 Jam siaga." />
+    <meta name="keywords" content="rumah sakit sayang ibu batusangkar, rsia sayang ibu, rsia batusangkar, rumah sakit bersalin batusangkar, dokter kandungan batusangkar, dokter anak batusangkar, spesialis kandungan tanah datar, persalinan eracs batusangkar, usg 4d batusangkar, biaya melahirkan batusangkar, igd 24 jam batusangkar, rumah sakit ibu dan anak sumatera barat, promo persalinan batusangkar, klinik obgyn tanah datar" />
+    <meta name="author" content="RSIA Sayang Ibu Batusangkar" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <link rel="canonical" href="https://sayangibu.co.id" />
+
+    <!-- Geo Targeting (Batusangkar, Tanah Datar, Sumatera Barat) -->
+    <meta name="geo.region" content="ID-SB" />
+    <meta name="geo.placename" content="Batusangkar, Kabupaten Tanah Datar, Sumatera Barat" />
+    <meta name="geo.position" content="-0.4606;100.5986" />
+    <meta name="ICBM" content="-0.4606, 100.5986" />
+
+    <!-- OpenGraph / Facebook Social Sharing Cards -->
+    <meta property="og:type" content="hospital" />
+    <meta property="og:site_name" content="RSIA Sayang Ibu Batusangkar" />
+    <meta property="og:title" content="RSIA Sayang Ibu Batusangkar - Pelayanan Medis Sepenuh Hati" />
+    <meta property="og:description" content="Rumah Sakit Ibu dan Anak terpercaya di Batusangkar & Tanah Datar. Dokter spesialis kandungan & anak profesional, persalinan ERACS, USG 4D, dan IGD 24 Jam." />
+    <meta property="og:url" content="https://sayangibu.co.id" />
+    <meta property="og:image" content="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=1200&auto=format&fit=crop" />
+    <meta property="og:locale" content="id_ID" />
+
+    <!-- Twitter / X Cards -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="RSIA Sayang Ibu Batusangkar - Pelayanan Medis Sepenuh Hati" />
+    <meta name="twitter:description" content="Pusat layanan kesehatan ibu & anak terbaik di Kabupaten Tanah Datar. Dokter obgyn, dokter anak, rawat inap VVIP/VIP, dan IGD siaga 24 Jam." />
+    <meta name="twitter:image" content="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=1200&auto=format&fit=crop" />
+
+    <!-- Performance & PageSpeed: Preconnect & DNS-Prefetch -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="https://images.unsplash.com" />
+    <link rel="icon" type="image/png" href="/logo-sayang-ibu-sm.png" />
+    <link rel="apple-touch-icon" href="/logo-sayang-ibu-sm.png" />
+
+    <!-- Optimized Google Fonts with swap display -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- Structured Data: Hospital & MedicalOrganization Schema (JSON-LD) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": ["Hospital", "MedicalOrganization"],
+      "name": "RSIA Sayang Ibu Batusangkar",
+      "alternateName": "Rumah Sakit Ibu dan Anak Sayang Ibu Batusangkar",
+      "url": "https://sayangibu.co.id",
+      "logo": "https://sayangibu.co.id/logo-sayang-ibu-sm.png",
+      "image": "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=1200&auto=format&fit=crop",
+      "telephone": "+62752123456",
+      "emergencyTelephone": "+62752123456",
+      "priceRange": "$$",
+      "currenciesAccepted": "IDR",
+      "paymentAccepted": "Cash, Credit Card, BPJS Kesehatan, Asuransi Mandiri",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "Jl. Soekarno Hatta No.123",
+        "addressLocality": "Batusangkar",
+        "addressRegion": "Sumatera Barat",
+        "postalCode": "27211",
+        "addressCountry": "ID"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": -0.4606,
+        "longitude": 100.5986
+      },
+      "openingHoursSpecification": [
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+          "opens": "00:00",
+          "closes": "23:59"
+        }
+      ],
+      "medicalSpecialty": [
+        "Obstetric",
+        "Pediatric",
+        "Gynecologic",
+        "Emergency"
+      ],
+      "availableService": [
+        {
+          "@type": "MedicalProcedure",
+          "name": "Persalinan Caesar ERACS (Enhanced Recovery After Cesarean Surgery)"
+        },
+        {
+          "@type": "MedicalProcedure",
+          "name": "Pemeriksaan USG 4D Fetomaternal"
+        },
+        {
+          "@type": "MedicalProcedure",
+          "name": "Poliklinik Spesialis Kebidanan dan Kandungan (Obgyn)"
+        },
+        {
+          "@type": "MedicalProcedure",
+          "name": "Poliklinik Tumbuh Kembang & Imunisasi Anak"
+        },
+        {
+          "@type": "MedicalProcedure",
+          "name": "Instalasi Gawat Darurat (IGD) 24 Jam Ibu dan Anak"
+        }
+      ]
+    }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
+

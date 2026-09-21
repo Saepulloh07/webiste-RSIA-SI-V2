@@ -1,0 +1,8 @@
+{
+  "name": "RSIA Sayang Ibu Batusangkar",
+  "description": "Platform layanan kesehatan digital dan sistem manajemen konten untuk RSIA Sayang Ibu Batusangkar.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

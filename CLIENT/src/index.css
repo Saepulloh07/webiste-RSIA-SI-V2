@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@theme {
+  /* TEMA MEWAH, ELEGAN, DAN ANGGUN SESUAI LOGO: PINK, EMAS, HIJAU SEGAR */
+  --color-primary: #e02875; /* Anggun Rose/Magenta Pink dari siluet ibu */
+  --color-primary-foreground: #ffffff;
+  --color-primary-hover: #c41861;
+  
+  --color-secondary: #cba135; /* Emas Ningrat / Royal Gold dari pita logo */
+  --color-secondary-foreground: #1c1917;
+  --color-secondary-hover: #b58d24;
+
+  --color-tertiary: #2e9d62; /* Hijau Muda Medis / Fresh Green dari jilbab logo */
+  --color-tertiary-foreground: #ffffff;
+  --color-tertiary-hover: #258351;
+
+  --color-gold: #d4af37;
+  --color-gold-light: #fef08a;
+  --color-gold-dark: #a16207;
+
+  --color-background: #fdfbfb; /* Porcelain warm white */
+  --color-foreground: #1e293b; /* Slate 800 for pristine contrast */
+  
+  --color-card: #ffffff;
+  --color-card-foreground: #1e293b;
+  
+  --color-muted: #f8fafc;
+  --color-muted-foreground: #64748b;
+  
+  --color-border: #f1f5f9;
+  
+  --color-destructive: #e11d48;
+  --color-destructive-foreground: #ffffff;
+  
+  --font-sans: 'Plus Jakarta Sans', sans-serif;
+  --font-heading: 'Playfair Display', serif;
+  
+  --radius-lg: 1.25rem;
+  --radius-md: 0.875rem;
+  --radius-sm: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    font-family: var(--font-sans);
+    color: var(--color-foreground);
+    background-color: var(--color-background);
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+  }
+}
