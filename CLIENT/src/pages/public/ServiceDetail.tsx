@@ -4,25 +4,25 @@ import { useStore, Service } from "@/store";
 import { MediaWatermark } from "@/components/common/MediaWatermark";
 import { Badge } from "@/components/ui/badge";
 
+import { Button } from "@/components/ui/button";
+
 export default function ServiceDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { services, doctors, settings } = useStore();
 
-  const service: Service = services.find(s => s.slug === slug || s.id === slug) || services[0] || {
-    id: "1",
-    name: "Kandungan & Kebidanan (Obgyn)",
-    slug: "kandungan-kebidanan",
-    category: "Poliklinik",
-    status: "Aktif",
-    description: "Pelayanan komprehensif bagi kesehatan reproduksi wanita, perencanaan kehamilan, masa kehamilan, hingga persalinan dan masa nifas.",
-    facilities: [
-      "Pemeriksaan USG 3D/4D Fetomaternal",
-      "Konsultasi Program Hamil & Fertilitas",
-      "Persalinan Normal & Caesar Metode ERACS"
-    ],
-    operationalHours: "Senin - Sabtu: 08.00 - 20.00 WIB",
-    image: "https://images.unsplash.com/photo-1581594693702-fbdc51b2763b?w=800&auto=format&fit=crop"
-  };
+  const service = services.find(s => s.slug === slug || s.id === slug);
+
+  if (!service) {
+    return (
+      <div className="container mx-auto px-4 py-24 text-center min-h-[60vh] flex flex-col items-center justify-center">
+        <h1 className="text-2xl md:text-3xl font-heading font-bold mb-4 text-slate-800">Layanan Tidak Ditemukan</h1>
+        <p className="text-slate-500 mb-8 text-sm">Maaf, informasi layanan medis yang Anda cari belum tersedia atau telah dipindahkan.</p>
+        <Button asChild className="bg-primary hover:bg-primary/90 rounded-full px-6">
+          <Link to="/layanan">Kembali ke Daftar Layanan</Link>
+        </Button>
+      </div>
+    );
+  }
 
   // Find doctors related to this service
   const relatedDoctors = doctors.filter(doc => {

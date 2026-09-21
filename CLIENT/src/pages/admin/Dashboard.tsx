@@ -8,10 +8,10 @@ export default function Dashboard() {
   const { doctors, services, articles, ads, appointments } = useStore();
   const role = localStorage.getItem("adminRole") || "Editor";
 
-  const totalDoctors = doctors?.length || 24;
-  const totalServices = services?.length || 12;
-  const totalArticles = articles?.length || 45;
-  const totalAppointments = appointments?.length || 18;
+  const totalDoctors = doctors?.length ?? 0;
+  const totalServices = services?.length ?? 0;
+  const totalArticles = articles?.length ?? 0;
+  const totalAppointments = appointments?.length ?? 0;
 
   return (
     <div className="flex flex-col gap-5 sm:gap-6 lg:gap-8 max-w-7xl mx-auto">

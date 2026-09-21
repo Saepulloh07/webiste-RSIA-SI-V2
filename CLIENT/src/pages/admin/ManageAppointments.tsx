@@ -1,26 +1,19 @@
 import { useState } from "react";
-import { Settings, CheckCircle2, Clock, Calendar, XCircle, Search, User, Stethoscope, ChevronRight, Check } from "lucide-react";
+import { Settings, CheckCircle2, Clock, Calendar, XCircle, Search, User, Stethoscope, ChevronRight, Check, Trash2, Phone, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useStore } from "@/store";
+import { useStore, Appointment } from "@/store";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 
-const mockAppointments = [
-  { id: "AP-001", patientName: "Ny. Ratna", phone: "081234567890", doctor: "Dr. Amanda Saraswati, Sp.OG", date: "15 Okt 2024", time: "09:00", status: "Menunggu", notes: "Kontrol kehamilan trimester 3" },
-  { id: "AP-002", patientName: "An. Budi (Ibu Siti)", phone: "081298765432", doctor: "Dr. Budi Santoso, Sp.A", date: "15 Okt 2024", time: "14:30", status: "Selesai", notes: "Imunisasi DPT lanjutan" },
-  { id: "AP-003", patientName: "Ny. Linda", phone: "082155566677", doctor: "Dr. Citra Lestari, Sp.OG(K)", date: "16 Okt 2024", time: "10:00", status: "Batal", notes: "Jadwal ulang ke minggu depan" },
-];
-
 export default function ManageAppointments() {
-  const { registrationSettings, setRegistrationSettings } = useStore();
-  const [appointments, setAppointments] = useState(mockAppointments);
+  const { appointments, updateAppointmentStatus, deleteAppointment, registrationSettings, setRegistrationSettings } = useStore();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [tempSettings, setTempSettings] = useState(registrationSettings);
   const [savedFeedback, setSavedFeedback] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState<any | null>(null);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [search, setSearch] = useState("");
 
   const handleSaveSettings = () => {
@@ -32,12 +25,34 @@ export default function ManageAppointments() {
     }, 1200);
   };
 
-  const filteredAppointments = appointments.filter(
-    (apt) => 
-      apt.patientName.toLowerCase().includes(search.toLowerCase()) || 
-      apt.doctor.toLowerCase().includes(search.toLowerCase()) ||
-      apt.id.toLowerCase().includes(search.toLowerCase())
-  );
+  const handleStatusChange = (id: string, status: Appointment["status"]) => {
+    updateAppointmentStatus(id, status);
+    if (selectedAppointment && selectedAppointment.id === id) {
+      setSelectedAppointment({ ...selectedAppointment, status });
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    if (confirm("Apakah Anda yakin ingin menghapus data pendaftaran ini?")) {
+      deleteAppointment(id);
+      if (selectedAppointment && selectedAppointment.id === id) {
+        setSelectedAppointment(null);
+      }
+    }
+  };
+
+  const filteredAppointments = appointments.filter((apt) => {
+    const query = search.toLowerCase();
+    const docName = (apt.doctorName || apt.doctorId || "").toLowerCase();
+    const sName = (apt.serviceName || apt.serviceId || "").toLowerCase();
+    return (
+      apt.patientName.toLowerCase().includes(query) ||
+      docName.includes(query) ||
+      sName.includes(query) ||
+      apt.id.toLowerCase().includes(query) ||
+      apt.phone.includes(query)
+    );
+  });
 
   return (
     <div className="flex flex-col gap-5 sm:gap-6">
@@ -135,89 +150,127 @@ export default function ManageAppointments() {
           </div>
         </div>
 
-        {/* Mobile View: Responsive Card List */}
-        <div className="block md:hidden divide-y divide-slate-100">
-          {filteredAppointments.map((apt) => (
-            <div key={apt.id} className="p-3.5 space-y-2.5">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-mono font-bold mb-1">
-                    {apt.id}
-                  </span>
-                  <h4 className="font-bold text-slate-900 text-sm leading-snug">{apt.patientName}</h4>
-                  <p className="text-xs text-slate-600 mt-0.5 flex items-center gap-1">
-                    <Stethoscope className="w-3 h-3 text-primary shrink-0" />
-                    <span className="truncate">{apt.doctor}</span>
-                  </p>
-                </div>
-                <Badge variant={apt.status === 'Selesai' ? 'default' : apt.status === 'Batal' ? 'destructive' : 'secondary'} className="shrink-0 text-[10px]">
-                  {apt.status}
-                </Badge>
-              </div>
+        {/* Empty State */}
+        {filteredAppointments.length === 0 && (
+          <div className="p-12 text-center text-slate-500">
+            <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <h4 className="font-bold text-slate-700 text-base mb-1">Belum Ada Antrean Pendaftaran</h4>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+              {search ? `Tidak ditemukan pendaftaran dengan kriteria pencarian "${search}".` : "Pasien yang mendaftar melalui website publik akan otomatis tercatat di sini."}
+            </p>
+          </div>
+        )}
 
-              <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5 text-slate-400" /> {apt.date}</span>
-                  <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-slate-400" /> {apt.time}</span>
+        {/* Mobile View: Responsive Card List */}
+        {filteredAppointments.length > 0 && (
+          <div className="block md:hidden divide-y divide-slate-100">
+            {filteredAppointments.map((apt) => (
+              <div key={apt.id} className="p-3.5 space-y-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-mono font-bold mb-1">
+                      {apt.id}
+                    </span>
+                    <h4 className="font-bold text-slate-900 text-sm leading-snug">{apt.patientName}</h4>
+                    <p className="text-xs text-slate-600 mt-0.5 flex items-center gap-1">
+                      <Stethoscope className="w-3 h-3 text-primary shrink-0" />
+                      <span className="truncate">{apt.doctorName || apt.doctorId}</span>
+                    </p>
+                  </div>
+                  <Badge 
+                    variant={apt.status === 'Selesai' ? 'default' : apt.status === 'Batal' ? 'destructive' : apt.status === 'Dikonfirmasi' ? 'outline' : 'secondary'} 
+                    className="shrink-0 text-[10px]"
+                  >
+                    {apt.status}
+                  </Badge>
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="h-7 px-2.5 text-xs rounded-lg border-slate-200 text-primary"
-                  onClick={() => setSelectedAppointment(apt)}
-                >
-                  Detail
-                </Button>
+
+                <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5 text-slate-400" /> {apt.date}</span>
+                    {apt.time && <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-slate-400" /> {apt.time}</span>}
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-7 px-2.5 text-xs rounded-lg border-slate-200 text-primary"
+                    onClick={() => setSelectedAppointment(apt)}
+                  >
+                    Detail
+                  </Button>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Desktop View: Structured Table */}
-        <div className="hidden md:block overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>No. Antrean</TableHead>
-                <TableHead>Nama Pasien</TableHead>
-                <TableHead>Dokter Tujuan</TableHead>
-                <TableHead>Jadwal</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Aksi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredAppointments.map((apt) => (
-                <TableRow key={apt.id}>
-                  <TableCell className="font-mono font-bold text-slate-900">{apt.id}</TableCell>
-                  <TableCell className="font-semibold text-slate-800">{apt.patientName}</TableCell>
-                  <TableCell>{apt.doctor}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-col text-xs">
-                      <span className="flex items-center gap-1 text-slate-700 font-medium"><Calendar className="w-3 h-3" /> {apt.date}</span>
-                      <span className="flex items-center gap-1 text-slate-500"><Clock className="w-3 h-3" /> {apt.time}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={apt.status === 'Selesai' ? 'default' : apt.status === 'Batal' ? 'destructive' : 'secondary'}>
-                      {apt.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="h-8 px-3 rounded-lg text-xs"
-                      onClick={() => setSelectedAppointment(apt)}
-                    >
-                      Detail
-                    </Button>
-                  </TableCell>
+        {filteredAppointments.length > 0 && (
+          <div className="hidden md:block overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>No. Antrean</TableHead>
+                  <TableHead>Nama Pasien</TableHead>
+                  <TableHead>Dokter / Layanan</TableHead>
+                  <TableHead>Jadwal</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {filteredAppointments.map((apt) => (
+                  <TableRow key={apt.id}>
+                    <TableCell className="font-mono font-bold text-slate-900">{apt.id}</TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-semibold text-slate-800">{apt.patientName}</div>
+                        <div className="text-[11px] text-slate-400">{apt.phone} • {apt.paymentMethod.toUpperCase()}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="text-xs font-medium text-slate-800">{apt.doctorName || apt.doctorId}</div>
+                        <div className="text-[11px] text-slate-500">{apt.serviceName || apt.serviceId}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col text-xs">
+                        <span className="flex items-center gap-1 text-slate-700 font-medium"><Calendar className="w-3 h-3" /> {apt.date}</span>
+                        {apt.time && <span className="flex items-center gap-1 text-slate-500"><Clock className="w-3 h-3" /> {apt.time}</span>}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={apt.status === 'Selesai' ? 'default' : apt.status === 'Batal' ? 'destructive' : apt.status === 'Dikonfirmasi' ? 'outline' : 'secondary'}>
+                        {apt.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1.5">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="h-8 px-3 rounded-lg text-xs"
+                          onClick={() => setSelectedAppointment(apt)}
+                        >
+                          Detail
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-rose-600 hover:bg-rose-50 rounded-lg"
+                          onClick={() => handleDelete(apt.id)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
 
       {/* Detail Modal */}
@@ -229,9 +282,24 @@ export default function ManageAppointments() {
         icon={<Calendar className="w-5 h-5 text-primary" />}
         size="lg"
         footer={
-          <Button onClick={() => setSelectedAppointment(null)} className="rounded-xl w-full sm:w-auto">
-            Tutup
-          </Button>
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-3 w-full">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">Ubah Status:</span>
+              <select
+                className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white font-medium focus:ring-primary"
+                value={selectedAppointment?.status || "Menunggu"}
+                onChange={(e) => selectedAppointment && handleStatusChange(selectedAppointment.id, e.target.value as Appointment["status"])}
+              >
+                <option value="Menunggu">Menunggu</option>
+                <option value="Dikonfirmasi">Dikonfirmasi</option>
+                <option value="Selesai">Selesai</option>
+                <option value="Batal">Batal</option>
+              </select>
+            </div>
+            <Button onClick={() => setSelectedAppointment(null)} className="rounded-xl w-full sm:w-auto">
+              Tutup
+            </Button>
+          </div>
         }
       >
         {selectedAppointment && (
@@ -240,18 +308,22 @@ export default function ManageAppointments() {
               <div>
                 <span className="text-xs text-slate-500 block">Nama Pasien</span>
                 <span className="font-bold text-slate-900">{selectedAppointment.patientName}</span>
+                <span className="text-[11px] text-slate-500 block">Tipe: Pasien {selectedAppointment.patientType === "baru" ? "Baru" : "Lama"}</span>
               </div>
               <div>
-                <span className="text-xs text-slate-500 block">No. Kontak WhatsApp</span>
+                <span className="text-xs text-slate-500 block">No. Kontak WhatsApp / HP</span>
                 <span className="font-medium text-slate-800">{selectedAppointment.phone}</span>
+                <span className="text-[11px] text-slate-500 block">Metode Bayar: {selectedAppointment.paymentMethod.toUpperCase()}</span>
               </div>
               <div>
-                <span className="text-xs text-slate-500 block">Dokter Spesialis</span>
-                <span className="font-semibold text-primary">{selectedAppointment.doctor}</span>
+                <span className="text-xs text-slate-500 block">Layanan & Dokter</span>
+                <span className="font-semibold text-primary block">{selectedAppointment.doctorName || selectedAppointment.doctorId}</span>
+                <span className="text-xs text-slate-600">{selectedAppointment.serviceName || selectedAppointment.serviceId}</span>
               </div>
               <div>
                 <span className="text-xs text-slate-500 block">Waktu Reservasi</span>
-                <span className="font-medium text-slate-800">{selectedAppointment.date} — Jam {selectedAppointment.time}</span>
+                <span className="font-medium text-slate-800">{selectedAppointment.date} {selectedAppointment.time ? `— Jam ${selectedAppointment.time}` : ''}</span>
+                <span className="text-[11px] text-slate-400 block">Didaftarkan: {selectedAppointment.createdAt}</span>
               </div>
             </div>
 

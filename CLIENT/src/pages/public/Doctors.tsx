@@ -76,13 +76,19 @@ export default function Doctors() {
 
         {filteredDoctors.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-3xl border border-amber-100 p-8">
-            <p className="text-slate-500 text-base mb-2">Tidak ditemukan dokter dengan kriteria pencarian "{search}".</p>
-            <button 
-              onClick={() => { setSearch(""); setSpecialty("Semua Spesialisasi"); }}
-              className="text-xs font-bold text-primary underline"
-            >
-              Reset Filter Pencarian
-            </button>
+            <p className="text-slate-500 text-base mb-2">
+              {doctors.length === 0 
+                ? "Belum ada data dokter yang dipublikasikan saat ini."
+                : `Tidak ditemukan dokter dengan kriteria pencarian "${search}".`}
+            </p>
+            {doctors.length > 0 && (
+              <button 
+                onClick={() => { setSearch(""); setSpecialty("Semua Spesialisasi"); }}
+                className="text-xs font-bold text-primary underline"
+              >
+                Reset Filter Pencarian
+              </button>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">

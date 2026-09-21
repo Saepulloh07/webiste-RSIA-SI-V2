@@ -15,29 +15,7 @@ export default function Home() {
   const { articles, settings, media, services, doctors } = useStore();
   const publishedArticles = articles.filter(a => a.status === 'Published').slice(0, 3);
   const activeDoctors = doctors.filter(d => d.status === 'Aktif').slice(0, 4);
-  const displayServices = services && services.length > 0 ? services.slice(0, 3) : [
-    {
-      id: "1",
-      name: "Kandungan & Kebidanan (Obgyn)",
-      slug: "kandungan-kebidanan",
-      shortDescription: "Pemeriksaan kehamilan rutin, USG 4D/Fetomaternal, dan persalinan nyaman dengan metode ERACS.",
-      icon: "HeartPulse"
-    },
-    {
-      id: "2",
-      name: "Spesialis Anak (Pediatri)",
-      slug: "spesialis-anak",
-      shortDescription: "Layanan imunisasi lengkap, pemantauan tumbuh kembang, NICU/PICU, dan rawat inap anak.",
-      icon: "Baby"
-    },
-    {
-      id: "3",
-      name: "IGD 24 Jam & Laboratorium",
-      slug: "igd",
-      shortDescription: "Pelayanan kegawatdaruratan medis responsif 24 jam dengan fasilitas laboratorium terintegrasi.",
-      icon: "Activity"
-    }
-  ];
+  const displayServices = (services || []).filter(s => s.status === 'Aktif').slice(0, 3);
 
   const heroImage = media.find(m => m.type === 'website_image' && m.name === 'hero-banner') ||
     media.find(m => m.type === 'website_image') ||
@@ -248,7 +226,14 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+          {displayServices.length === 0 ? (
+            <div className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 text-center max-w-md mx-auto border border-amber-100/80 shadow-xs">
+              <Stethoscope className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+              <p className="text-slate-600 text-sm font-medium">Informasi layanan medis sedang diperbarui.</p>
+              <p className="text-slate-400 text-xs mt-1">Silakan hubungi customer service kami untuk informasi jadwal poliklinik.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
             {displayServices.map((service, index) => {
               const borderColors = [
                 "hover:border-rose-300",
@@ -285,7 +270,7 @@ export default function Home() {
                       {service.name}
                     </h4>
                     <p className="text-slate-600 text-xs md:text-sm leading-relaxed mb-4">
-                      {service.shortDescription || service.description || "Layanan terpadu dengan standar medis tertinggi untuk pasien."}
+                      {service.description || "Layanan terpadu dengan standar medis tertinggi untuk pasien."}
                     </p>
                   </div>
 
@@ -297,7 +282,8 @@ export default function Home() {
                 </div>
               );
             })}
-          </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -368,55 +354,57 @@ export default function Home() {
       </section>
 
       {/* Latest Articles Section (Dynamic from CMS) */}
-      <section className="py-16 md:py-24 relative bg-rose-50/20">
-        <div className="container mx-auto px-4 md:px-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 md:mb-12 gap-4 md:gap-6">
-            <div className="max-w-2xl">
-              <h2 className="text-[11px] md:text-xs font-bold text-primary uppercase tracking-widest mb-2 md:mb-3">Berita & Edukasi</h2>
-              <h3 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold font-heading mb-3 md:mb-4 text-slate-900">
-                Artikel & Informasi Kesehatan
-              </h3>
-              <p className="text-sm md:text-base text-slate-600">Informasi dan tips kesehatan terkini langsung dari pakar medis kami.</p>
-            </div>
-            <Link to="/artikel" className="inline-flex items-center text-white bg-primary px-6 py-3 rounded-full font-bold text-sm md:text-base hover:bg-primary-hover hover:shadow-lg transition-all w-full md:w-auto justify-center">
-              Semua Artikel <ArrowRight className="w-4 h-4 ml-2" />
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
-            {publishedArticles.map((article) => (
-              <Link to={`/artikel/${article.slug}`} key={article.id} className="group flex flex-col bg-white rounded-2xl md:rounded-3xl overflow-hidden border border-amber-100/80 shadow-sm hover:shadow-xl hover:border-amber-300 transition-all duration-300">
-                <div className="aspect-[16/10] overflow-hidden relative">
-                  <img
-                    src={article.image || "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=800&auto=format&fit=crop"}
-                    alt={article.title}
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  />
-                  <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] md:text-xs font-bold text-primary shadow-sm border border-amber-200/50">
-                    {article.category}
-                  </div>
-
-                  {/* Proportional Watermark */}
-                  <MediaWatermark size="sm" />
-                </div>
-                <div className="p-5 md:p-6 lg:p-7 flex-1 flex flex-col">
-                  <div className="flex items-center text-[11px] md:text-xs text-slate-500 mb-2 md:mb-3 font-medium">
-                    <Calendar className="w-3.5 h-3.5 mr-1.5 text-amber-600" /> {article.date}
-                  </div>
-                  <h4 className="text-base md:text-lg font-bold font-heading text-slate-900 mb-3 group-hover:text-primary transition-colors line-clamp-2 leading-snug">
-                    {article.title}
-                  </h4>
-                  <span className="mt-auto inline-flex items-center text-xs md:text-sm font-bold text-amber-700 group-hover:text-primary transition-colors">
-                    Baca Selengkapnya <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
-                  </span>
-                </div>
+      {publishedArticles.length > 0 && (
+        <section className="py-16 md:py-24 relative bg-rose-50/20">
+          <div className="container mx-auto px-4 md:px-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 md:mb-12 gap-4 md:gap-6">
+              <div className="max-w-2xl">
+                <h2 className="text-[11px] md:text-xs font-bold text-primary uppercase tracking-widest mb-2 md:mb-3">Berita & Edukasi</h2>
+                <h3 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold font-heading mb-3 md:mb-4 text-slate-900">
+                  Artikel & Informasi Kesehatan
+                </h3>
+                <p className="text-sm md:text-base text-slate-600">Informasi dan tips kesehatan terkini langsung dari pakar medis kami.</p>
+              </div>
+              <Link to="/artikel" className="inline-flex items-center text-white bg-primary px-6 py-3 rounded-full font-bold text-sm md:text-base hover:bg-primary-hover hover:shadow-lg transition-all w-full md:w-auto justify-center">
+                Semua Artikel <ArrowRight className="w-4 h-4 ml-2" />
               </Link>
-            ))}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
+              {publishedArticles.map((article) => (
+                <Link to={`/artikel/${article.slug}`} key={article.id} className="group flex flex-col bg-white rounded-2xl md:rounded-3xl overflow-hidden border border-amber-100/80 shadow-sm hover:shadow-xl hover:border-amber-300 transition-all duration-300">
+                  <div className="aspect-[16/10] overflow-hidden relative">
+                    <img
+                      src={article.image || "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=800&auto=format&fit=crop"}
+                      alt={article.title}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    />
+                    <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] md:text-xs font-bold text-primary shadow-sm border border-amber-200/50">
+                      {article.category}
+                    </div>
+
+                    {/* Proportional Watermark */}
+                    <MediaWatermark size="sm" />
+                  </div>
+                  <div className="p-5 md:p-6 lg:p-7 flex-1 flex flex-col">
+                    <div className="flex items-center text-[11px] md:text-xs text-slate-500 mb-2 md:mb-3 font-medium">
+                      <Calendar className="w-3.5 h-3.5 mr-1.5 text-amber-600" /> {article.date}
+                    </div>
+                    <h4 className="text-base md:text-lg font-bold font-heading text-slate-900 mb-3 group-hover:text-primary transition-colors line-clamp-2 leading-snug">
+                      {article.title}
+                    </h4>
+                    <span className="mt-auto inline-flex items-center text-xs md:text-sm font-bold text-amber-700 group-hover:text-primary transition-colors">
+                      Baca Selengkapnya <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Official Contact & Maps Section (Aligned with CMS Settings) */}
       <section className="py-16 md:py-24 relative bg-white">

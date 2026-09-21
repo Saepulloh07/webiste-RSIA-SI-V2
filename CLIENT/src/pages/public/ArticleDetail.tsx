@@ -5,20 +5,25 @@ import { MediaWatermark } from "@/components/common/MediaWatermark";
 import { Badge } from "@/components/ui/badge";
 import { SEOHead } from "@/components/common/SEOHead";
 
+import { Button } from "@/components/ui/button";
+
 export default function ArticleDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { articles, settings } = useStore();
 
-  const article = articles.find(a => a.slug === slug || a.id === slug) || articles[0] || {
-    id: "1",
-    title: "Mengenal Persalinan Metode ERACS di RSIA Sayang Ibu Batusangkar: Cepat Pulih & Minim Nyeri",
-    slug: "persalinan-metode-eracs-batusangkar",
-    category: "Kebidanan & Kandungan",
-    date: "14 Okt 2024",
-    status: "Published",
-    content: "<p>Persalinan metode ERACS di RSIA Sayang Ibu Batusangkar memberikan kenyamanan dan pemulihan cepat bagi bunda...</p>",
-    image: "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=1200&q=80"
-  };
+  const article = articles.find(a => a.slug === slug || a.id === slug);
+
+  if (!article) {
+    return (
+      <div className="container mx-auto px-4 py-24 text-center min-h-[60vh] flex flex-col items-center justify-center">
+        <h1 className="text-2xl md:text-3xl font-heading font-bold mb-4 text-slate-800">Artikel Tidak Ditemukan</h1>
+        <p className="text-slate-500 mb-8 text-sm">Maaf, artikel edukasi kesehatan yang Anda cari tidak tersedia atau belum dipublikasikan.</p>
+        <Button asChild className="bg-primary hover:bg-primary/90 rounded-full px-6">
+          <Link to="/artikel">Kembali ke Daftar Artikel</Link>
+        </Button>
+      </div>
+    );
+  }
 
   const relatedArticles = articles
     .filter(a => a.status === "Published" && a.id !== article.id)

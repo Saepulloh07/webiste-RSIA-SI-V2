@@ -25,7 +25,7 @@ const appointmentSchema = z.object({
 type AppointmentFormValues = z.infer<typeof appointmentSchema>;
 
 export default function Appointment() {
-  const { registrationSettings, doctors, services } = useStore();
+  const { registrationSettings, doctors, services, addAppointment } = useStore();
   const [isSuccess, setIsSuccess] = useState(false);
   const [refNumber, setRefNumber] = useState("");
 
@@ -38,10 +38,30 @@ export default function Appointment() {
   });
 
   const onSubmit = async (data: AppointmentFormValues) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    console.log("Submitted Data:", data);
-    setRefNumber(`REG-${Math.floor(100000 + Math.random() * 900000)}`);
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+    const newRefNumber = `REG-${Math.floor(100000 + Math.random() * 900000)}`;
+    setRefNumber(newRefNumber);
+
+    const selectedDoc = doctors.find(d => d.id === data.doctorId);
+    const selectedServ = services.find(s => s.id === data.serviceId);
+
+    addAppointment({
+      id: newRefNumber,
+      patientName: data.patientName,
+      phone: data.phone,
+      patientType: data.patientType,
+      paymentMethod: data.paymentMethod,
+      serviceId: data.serviceId,
+      serviceName: selectedServ?.name || data.serviceId,
+      doctorId: data.doctorId,
+      doctorName: selectedDoc?.name || data.doctorId,
+      date: data.date,
+      notes: data.notes || "",
+      status: "Menunggu",
+      createdAt: new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+    });
+
     setIsSuccess(true);
   };
 

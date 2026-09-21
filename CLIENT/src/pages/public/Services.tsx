@@ -39,7 +39,14 @@ export default function Services() {
 
       {/* Services Grid */}
       <div className="container mx-auto px-4 -mt-12 relative z-10 max-w-6xl">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+        {activeServices.length === 0 ? (
+          <div className="text-center py-16 bg-white rounded-3xl border border-amber-100/80 p-8 max-w-lg mx-auto shadow-xs">
+            <Stethoscope className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <h3 className="font-bold text-slate-800 text-lg mb-1">Belum Ada Layanan Tersedia</h3>
+            <p className="text-slate-500 text-xs">Informasi poliklinik dan layanan medis sedang diperbarui oleh manajemen rumah sakit.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
           {activeServices.map((service) => (
             <div
               key={service.id}
@@ -100,6 +107,7 @@ export default function Services() {
             </div>
           ))}
         </div>
+        )}
       </div>
     </div>
   );

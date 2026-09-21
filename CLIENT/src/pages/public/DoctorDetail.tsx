@@ -11,7 +11,7 @@ export default function DoctorDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { doctors, settings } = useStore();
 
-  const doctor = doctors.find(d => d.slug === slug || d.id === slug) || doctors[0];
+  const doctor = doctors.find(d => d.slug === slug || d.id === slug);
 
   if (!doctor) {
     return (

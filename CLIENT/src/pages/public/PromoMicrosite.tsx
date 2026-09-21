@@ -7,33 +7,25 @@ import { SEOHead } from "@/components/common/SEOHead";
 import { MediaWatermark } from "@/components/common/MediaWatermark";
 import { HospitalLogo } from "@/components/common/HospitalLogo";
 
+import { Button } from "@/components/ui/button";
+
 export default function PromoMicrosite() {
   const { slug } = useParams<{ slug: string }>();
   const { ads, settings } = useStore();
 
-  // Match ad from store, or fallback to sensible default based on slug
-  const campaign: AdCampaign = ads.find(a => a.slug === slug || a.id === slug) || ads[0] || {
-    id: "1",
-    title: "Promo Persalinan Caesar ERACS 2024 - Cepat Pulih & Minim Nyeri",
-    slug: "promo-persalinan-eracs-2024",
-    content: "Dapatkan paket persalinan metode ERACS terjangkau di RSIA Sayang Ibu Batusangkar. Sudah termasuk kamar perawatan VIP, obat-obatan dasar, tindakan dokter spesialis kandungan dan anak.",
-    image: "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=800&q=80",
-    price: "Rp 6.800.000",
-    originalPrice: "Rp 8.500.000",
-    badge: "Diskon 20% Terbatas",
-    startDate: "2024-10-01",
-    endDate: "2024-12-31",
-    status: "Aktif",
-    contactWa: "",
-    highlights: [
-      "Metode ERACS: Bisa duduk 2 jam pasca tindakan",
-      "Kamar Rawat Inap VIP eksklusif dan nyaman",
-      "Didampingi Dokter Spesialis Obgyn & Dokter Anak",
-      "Sudah termasuk obat-obatan paten & administrasi",
-      "Free souvenir bayi & dokumentasi momen persalinan"
-    ],
-    targetKeywords: "promo persalinan eracs batusangkar, operasi sesar murah tanah datar, rsia sayang ibu promo melahirkan, dokter kandungan batusangkar"
-  };
+  const campaign = ads.find(a => a.slug === slug || a.id === slug);
+
+  if (!campaign) {
+    return (
+      <div className="container mx-auto px-4 py-24 text-center min-h-[60vh] flex flex-col items-center justify-center">
+        <h1 className="text-2xl md:text-3xl font-heading font-bold mb-4 text-slate-800">Promo Tidak Ditemukan</h1>
+        <p className="text-slate-500 mb-8 text-sm">Maaf, promo layanan kesehatan yang Anda cari telah berakhir atau belum aktif.</p>
+        <Button asChild className="bg-primary hover:bg-primary/90 rounded-full px-6">
+          <Link to="/">Kembali ke Beranda</Link>
+        </Button>
+      </div>
+    );
+  }
 
   // Dynamic countdown timer for high-conversion marketing effect
   const [timeLeft, setTimeLeft] = useState({ hours: 48, minutes: 0, seconds: 0 });

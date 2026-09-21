@@ -95,6 +95,11 @@ export default function ManageServices() {
 
         {/* Mobile View: Responsive Card List */}
         <div className="block md:hidden divide-y divide-slate-100">
+          {services.length === 0 && (
+            <div className="p-8 text-center text-slate-500 text-xs">
+              Belum ada layanan terdaftar. Klik "Tambah Layanan" untuk menambahkan data baru.
+            </div>
+          )}
           {services
             .filter(s => s.name.toLowerCase().includes(search.toLowerCase()) || s.category.toLowerCase().includes(search.toLowerCase()))
             .map((service) => (
@@ -145,6 +150,13 @@ export default function ManageServices() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {services.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-10 text-slate-500 text-xs">
+                    Belum ada layanan terdaftar. Klik "Tambah Layanan" untuk menambahkan data baru.
+                  </TableCell>
+                </TableRow>
+              )}
               {services
                 .filter(s => s.name.toLowerCase().includes(search.toLowerCase()) || s.category.toLowerCase().includes(search.toLowerCase()))
                 .map((service) => (

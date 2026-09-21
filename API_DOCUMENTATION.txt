@@ -1,0 +1,1091 @@
+================================================================================
+DOKUMENTASI SPESIFIKASI BACKEND REST API
+WEBSITE & CMS PORTAL RSIA SAYANG IBU BATUSANGKAR (V2)
+================================================================================
+Versi API        : v1.0.0
+Base URL Lokal   : http://localhost:5000/api/v1
+Base URL Prod    : https://api.sayangibu.co.id/api/v1
+Format Data      : JSON (application/json) / Multipart Form Data (untuk upload file)
+Protokol         : HTTPS (Production) / HTTP (Development)
+Arsitektur       : RESTful API Architecture
+Tanggal Rilis    : 2024 / 2026
+
+--------------------------------------------------------------------------------
+DAFTAR ISI:
+--------------------------------------------------------------------------------
+1.  STANDAR UMUM API & PANDUAN PENGEMBANGAN
+    1.1 Format Respons Standar
+    1.2 Format Pesan Error
+    1.3 Pagination & Metadata
+    1.4 Autentikasi & Autorisasi (JWT)
+    1.5 Kode Status HTTP
+2.  SKEMA STRUKTUR BASIS DATA (DATABASE SCHEMA & RELATIONS)
+3.  SPESIFIKASI ENDPOINT
+    3.1 MODUL 1: AUTENTIKASI (AUTH)
+    3.2 MODUL 2: DOKTER (DOCTORS)
+    3.3 MODUL 3: LAYANAN MEDIS & POLIKLINIK (SERVICES)
+    3.4 MODUL 4: ARTIKEL & BERITA EDUKASI (ARTICLES)
+    3.5 MODUL 5: IKLAN & PROMO MICROSITE (ADS / PROMOS)
+    3.6 MODUL 6: PENDAFTARAN ONLINE / ANTREAN PASIEN (APPOINTMENTS)
+    3.7 MODUL 7: LOWONGAN KERJA / KARIR (VACANCIES)
+    3.8 MODUL 8: MEDIA STORAGE & LIBRARY (MEDIA)
+    3.9 MODUL 9: PENGATURAN GLOBAL WEBSITE & PENDAFTARAN (SETTINGS)
+    3.10 MODUL 10: METRIK DASHBOARD CMS (DASHBOARD STATS)
+    3.11 MODUL 11: MANAJEMEN PENGGUNA CMS (USERS)
+4.  CONTOH FLOW INTEGRASI FRONTEND-BACKEND
+5.  CHECKLIST DEPLOYMENT & SECURITY UNTUK BACKEND DEVELOPER
+
+
+================================================================================
+1. STANDAR UMUM API & PANDUAN PENGEMBANGAN
+================================================================================
+
+1.1 Format Respons Sukses (Standard JSON Success Response)
+Setiap permintaan yang berhasil (HTTP 200, 201) WAJIB mengembalikan struktur JSON konsisten:
+{
+  "success": true,
+  "message": "Pesan deskripsi keberhasilan aksi",
+  "data": { ... } atau [ ... ],
+  "meta": { ... } // Opsional: ada saat pagination
+}
+
+1.2 Format Respons Gagal (Standard JSON Error Response)
+Setiap permintaan yang gagal (HTTP 400, 401, 403, 404, 422, 500) WAJIB mengembalikan struktur JSON:
+{
+  "success": false,
+  "message": "Pesan deskriptif kesalahan",
+  "errors": {
+    "field_name": [
+      "Pesan validasi field secara spesifik"
+    ]
+  },
+  "code": "ERROR_CODE_STRING" // Opsional
+}
+
+1.3 Pagination & Metadata
+Untuk request list dengan data banyak, gunakan query params:
+  - page: integer (default: 1)
+  - limit: integer (default: 10, max: 100)
+  - search: string (pencarian teks bebas)
+  - sort: string (contoh: "-created_at", "name:asc")
+Struktur metadata:
+{
+  "meta": {
+    "page": 1,
+    "limit": 10,
+    "totalItems": 48,
+    "totalPages": 5,
+    "hasNextPage": true,
+    "hasPrevPage": false
+  }
+}
+
+1.4 Autentikasi & Autorisasi (JWT)
+  - Header Request:
+    Authorization: Bearer <access_token>
+  - Token Type: JSON Web Token (JWT) dengan signature HS256 atau RS256.
+  - Payload Token berisi:
+    {
+      "sub": "user_uuid_or_id",
+      "email": "admin@sayangibu.co.id",
+      "role": "Super Admin" | "Admin" | "Editor",
+      "exp": 1730000000
+    }
+  - Role Permissions:
+    * Super Admin : Hak akses penuh ke seluruh modul, termasuk manajemen User CMS & Pengaturan Global.
+    * Admin       : Hak akses kelola data dokter, layanan, promo, antrean pasien, artikel, media, vacancies.
+    * Editor      : Hak akses menulis & mengedit konten artikel dan draft promo/vacancies.
+
+1.5 Kode Status HTTP (HTTP Status Codes)
+  - 200 OK           : Permintaan berhasil (GET, PUT, PATCH, DELETE).
+  - 201 Created      : Data baru berhasil dibuat (POST).
+  - 400 Bad Request  : Parameter request tidak valid atau syntax salah.
+  - 401 Unauthorized : Tidak menyertakan token atau token telah kadaluarsa.
+  - 403 Forbidden    : Pengguna tidak memiliki role yang diizinkan untuk resource ini.
+  - 404 Not Found    : Data/endpoint yang dicari tidak ditemukan.
+  - 422 Unprocessable: Validasi field form gagal.
+  - 500 Server Error : Terjadi kesalahan fatal pada server backend / database.
+
+
+================================================================================
+2. SKEMA STRUKTUR BASIS DATA (DATABASE SCHEMA & RELATIONS)
+================================================================================
+
+Tabel 1: users (Akun Pengelola CMS)
+- id            : UUID / BIGINT AUTO_INCREMENT (Primary Key)
+- name          : VARCHAR(100) NOT NULL
+- email         : VARCHAR(150) NOT NULL UNIQUE
+- password_hash : VARCHAR(255) NOT NULL
+- role          : ENUM('Super Admin', 'Admin', 'Editor') DEFAULT 'Editor'
+- last_login_at : TIMESTAMP NULL
+- created_at    : TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+- updated_at    : TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
+Tabel 2: doctors (Direktori Tenaga Medis & Dokter Spesialis)
+- id            : UUID / BIGINT AUTO_INCREMENT (Primary Key)
+- name          : VARCHAR(150) NOT NULL (Contoh: "dr. Amanda Saraswati, Sp.OG")
+- slug          : VARCHAR(180) NOT NULL UNIQUE (Contoh: "dr-amanda-saraswati-spog")
+- specialty     : VARCHAR(100) NOT NULL (Contoh: "Kandungan", "Anak", "Penyakit Dalam")
+- subspecialty  : VARCHAR(150) NULL (Contoh: "Fetomaternal, ERACS & Fertilitas")
+- status        : ENUM('Aktif', 'Cuti', 'Nonaktif') DEFAULT 'Aktif'
+- schedule      : VARCHAR(255) NOT NULL (Contoh: "Senin - Jumat, 08:00 - 14:00")
+- sip_number    : VARCHAR(100) NULL (Nomor Izin Praktik)
+- poliklinik    : VARCHAR(100) NULL (Lokasi Poli, misal: "Poli Obgyn Lantai 2")
+- image_url     : TEXT NULL (URL foto dokter berlatar profesional)
+- bio           : TEXT NULL (Biografi & profil keahlian dokter)
+- education     : JSON NULL (Array string riwayat pendidikan & sertifikasi)
+- created_at    : TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+- updated_at    : TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
+Tabel 3: services (Layanan Unggulan, Poliklinik & Fasilitas)
+- id                : UUID / BIGINT AUTO_INCREMENT (Primary Key)
+- name              : VARCHAR(150) NOT NULL (Contoh: "Kandungan & Kebidanan (Obgyn)")
+- slug              : VARCHAR(180) NOT NULL UNIQUE (Contoh: "kandungan-kebidanan")
+- category          : VARCHAR(100) NOT NULL (Contoh: "Poliklinik", "Penunjang Medis", "Rawat Inap")
+- status            : ENUM('Aktif', 'Nonaktif') DEFAULT 'Aktif'
+- description       : TEXT NOT NULL (Deskripsi lengkap layanan)
+- image_url         : TEXT NULL (URL foto penunjang fasilitas)
+- facilities        : JSON NULL (Daftar nama sarana/fasilitas, Array of String)
+- operational_hours : VARCHAR(150) NULL (Contoh: "Senin - Sabtu: 08:00 - 20:00")
+- created_at        : TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+- updated_at        : TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
+Tabel 4: articles (Publikasi Berita & Edukasi Kesehatan)
+- id         : UUID / BIGINT AUTO_INCREMENT (Primary Key)
+- title      : VARCHAR(255) NOT NULL
+- slug       : VARCHAR(255) NOT NULL UNIQUE
+- category   : VARCHAR(100) NOT NULL (Contoh: "Kebidanan & Kandungan", "Kesehatan Anak")
+- date       : VARCHAR(50) NOT NULL (Format tampilan, misal: "14 Okt 2024")
+- status     : ENUM('Published', 'Draft') DEFAULT 'Draft'
+- author     : VARCHAR(100) DEFAULT 'Tim Medis RSIA Sayang Ibu'
+- content    : LONGTEXT NOT NULL (Isi artikel dalam format HTML / Rich Text)
+- image_url  : TEXT NULL (Cover gambar artikel)
+- tags       : JSON NULL (Array string kata kunci tag artikel)
+- created_at : TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+- updated_at : TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
+Tabel 5: ad_campaigns (Promo Layanan & Landing Page Microsite)
+- id              : UUID / BIGINT AUTO_INCREMENT (Primary Key)
+- title           : VARCHAR(255) NOT NULL
+- slug            : VARCHAR(255) NOT NULL UNIQUE
+- badge           : VARCHAR(50) DEFAULT 'Promo Spesial'
+- price           : VARCHAR(50) NULL (Contoh: "Rp 6.800.000")
+- original_price  : VARCHAR(50) NULL (Contoh: "Rp 8.500.000")
+- start_date      : DATE NOT NULL
+- end_date        : DATE NOT NULL
+- status          : ENUM('Aktif', 'Berakhir', 'Draft') DEFAULT 'Draft'
+- content         : TEXT NOT NULL (Deskripsi penawaran paket)
+- image_url       : TEXT NULL
+- highlights      : JSON NULL (Array of String keuntungan paket)
+- target_keywords : TEXT NULL (Kata kunci target Google Ads / SEO)
+- contact_wa      : VARCHAR(50) NULL (Nomor WA khusus jika beda dari kontak RS)
+- created_at      : TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+- updated_at      : TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
+Tabel 6: appointments (Pendaftaran Online Pasien / Booking Janji Temu)
+- id             : VARCHAR(50) PRIMARY KEY (Contoh: "REG-839201")
+- patient_name   : VARCHAR(150) NOT NULL
+- phone          : VARCHAR(30) NOT NULL (Nomor WhatsApp/HP)
+- patient_type   : ENUM('baru', 'lama') NOT NULL
+- payment_method : ENUM('umum', 'bpjs', 'asuransi') NOT NULL
+- service_id     : VARCHAR(100) NOT NULL (FK ke tabel services atau id layanan)
+- service_name   : VARCHAR(150) NULL
+- doctor_id      : VARCHAR(100) NOT NULL (FK ke tabel doctors atau id dokter)
+- doctor_name    : VARCHAR(150) NULL
+- date           : DATE NOT NULL (Tanggal janji temu yang dipilih)
+- time           : VARCHAR(20) NULL (Jam konsultasi yang dijadwalkan)
+- notes          : TEXT NULL (Keluhan atau catatan pasien)
+- status         : ENUM('Menunggu', 'Dikonfirmasi', 'Selesai', 'Batal') DEFAULT 'Menunggu'
+- created_at     : TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+- updated_at     : TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
+Tabel 7: job_vacancies (Lowongan Karir & Rekrutmen Medis)
+- id            : UUID / BIGINT AUTO_INCREMENT (Primary Key)
+- title         : VARCHAR(150) NOT NULL (Contoh: "Perawat Pelaksana (IGD)")
+- slug          : VARCHAR(180) NOT NULL UNIQUE
+- department    : VARCHAR(100) NOT NULL (Contoh: "Keperawatan", "Medis", "Farmasi")
+- type          : ENUM('Full Time', 'Part Time', 'Kontrak') DEFAULT 'Full Time'
+- location      : VARCHAR(100) DEFAULT 'Batusangkar'
+- experience    : VARCHAR(100) NULL (Contoh: "Minimal 1 Tahun di Rumah Sakit")
+- deadline      : DATE NULL
+- status        : ENUM('Published', 'Draft') DEFAULT 'Draft'
+- description   : TEXT NOT NULL (Uraian tugas dan tanggung jawab)
+- requirements  : TEXT NOT NULL (Persyaratan kualifikasi, STR, dll.)
+- contact_email : VARCHAR(100) NULL
+- contact_wa    : VARCHAR(30) NULL
+- date          : VARCHAR(50) NULL
+- created_at    : TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+- updated_at    : TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
+Tabel 8: media (Media Library Penyimpanan Berkas & Gambar)
+- id          : UUID / BIGINT AUTO_INCREMENT (Primary Key)
+- name        : VARCHAR(255) NOT NULL
+- type        : ENUM('image', 'video', 'document', 'slideshow', 'website_image') DEFAULT 'image'
+- url         : TEXT NOT NULL (URL publik asset di storage / CDN)
+- size        : VARCHAR(50) NOT NULL (Contoh: "2.4 MB")
+- date        : VARCHAR(50) NOT NULL
+- description : TEXT NULL
+- created_at  : TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
+Tabel 9: hospital_settings (Profil & Informasi Resmi Rumah Sakit)
+- id              : INT PRIMARY KEY DEFAULT 1
+- hospital_name   : VARCHAR(150) NOT NULL DEFAULT 'RSIA Sayang Ibu'
+- slogan          : VARCHAR(255) NULL
+- about_text      : TEXT NULL
+- operational_hours: VARCHAR(150) NULL
+- logo_url        : TEXT NULL
+- phone_cs        : VARCHAR(50) NULL
+- phone_emergency : VARCHAR(50) NULL
+- whatsapp        : VARCHAR(50) NULL
+- email           : VARCHAR(100) NULL
+- address         : TEXT NULL
+- maps_url        : TEXT NULL
+- maps_embed      : TEXT NULL
+- instagram       : VARCHAR(255) NULL
+- facebook        : VARCHAR(255) NULL
+- youtube         : VARCHAR(255) NULL
+- tiktok          : VARCHAR(255) NULL
+- updated_at      : TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
+Tabel 10: registration_settings (Pengaturan Form Pendaftaran Online)
+- id               : INT PRIMARY KEY DEFAULT 1
+- is_open          : BOOLEAN NOT NULL DEFAULT TRUE
+- max_daily_quota  : INT NOT NULL DEFAULT 50
+- notice_message   : TEXT NULL
+- updated_at       : TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+
+
+================================================================================
+3. SPESIFIKASI LENGKAP SETIAP ENDPOINT
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1 MODUL 1: AUTENTIKASI (AUTH)
+--------------------------------------------------------------------------------
+
+[POST] /api/v1/auth/login
+Deskripsi : Otentikasi pengelola CMS & penerbitan token akses JWT.
+Akses     : Publik
+Request Headers:
+  Content-Type: application/json
+Request Body:
+{
+  "email": "admin@sayangibu.co.id",
+  "password": "PasswordRahasia123!"
+}
+Validasi:
+  - email    : required, email format
+  - password : required, min: 6 karakter
+Response 200 OK:
+{
+  "success": true,
+  "message": "Login berhasil.",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "d8f92j29f82hf92...",
+    "user": {
+      "id": "1",
+      "name": "dr. Budi Santoso",
+      "email": "admin@sayangibu.co.id",
+      "role": "Super Admin",
+      "lastLogin": "Hari ini, 08:30"
+    }
+  }
+}
+Response 401 Unauthorized:
+{
+  "success": false,
+  "message": "Email atau password yang Anda masukkan salah.",
+  "errors": null
+}
+
+---
+
+[GET] /api/v1/auth/me
+Deskripsi : Mendapatkan profil pengguna yang sedang login berdasarkan Bearer token.
+Akses     : Terproteksi (Super Admin, Admin, Editor)
+Request Headers:
+  Authorization: Bearer <token>
+Response 200 OK:
+{
+  "success": true,
+  "message": "Data profil berhasil diambil.",
+  "data": {
+    "id": "1",
+    "name": "dr. Budi Santoso",
+    "email": "admin@sayangibu.co.id",
+    "role": "Super Admin",
+    "lastLogin": "2026-09-21 08:30:00"
+  }
+}
+
+---
+
+[POST] /api/v1/auth/logout
+Deskripsi : Mencabut sesi login / blacklist refresh token.
+Akses     : Terproteksi
+
+
+--------------------------------------------------------------------------------
+3.2 MODUL 2: DOKTER (DOCTORS)
+--------------------------------------------------------------------------------
+
+[GET] /api/v1/doctors
+Deskripsi : Mengambil daftar seluruh dokter spesialis.
+Akses     : Publik (Untuk website publik dan CMS)
+Query Parameters:
+  - specialty : string (filter spesialisasi, misal: "Kandungan", "Anak")
+  - status    : string (filter status: "Aktif", "Cuti", "Nonaktif")
+  - search    : string (cari nama atau sub-spesialisasi)
+  - limit     : integer (default: 50)
+  - page      : integer (default: 1)
+Response 200 OK:
+{
+  "success": true,
+  "message": "Daftar dokter berhasil diambil.",
+  "data": [
+    {
+      "id": "1",
+      "name": "dr. Amanda Saraswati, Sp.OG",
+      "slug": "dr-amanda-saraswati-spog",
+      "specialty": "Kandungan",
+      "subspecialty": "Fetomaternal, ERACS & Fertilitas",
+      "status": "Aktif",
+      "schedule": "Senin - Jumat, 08:00 - 14:00",
+      "sipNumber": "503/SIP.DS/DPM-PTSP/2021",
+      "poliklinik": "Poli Obgyn Lantai 2",
+      "image": "https://storage.sayangibu.co.id/doctors/dr-amanda.jpg",
+      "bio": "Spesialis kebidanan dan kandungan dengan pengalaman lebih dari 10 tahun...",
+      "education": [
+        "Spesialis Obstetri & Ginekologi - FK Universitas Andalas",
+        "Pendidikan Dokter Umum - Universitas Padjadjaran"
+      ]
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 50,
+    "totalItems": 1,
+    "totalPages": 1
+  }
+}
+
+---
+
+[GET] /api/v1/doctors/:slugOrId
+Deskripsi : Mengambil detail profil dokter berdasarkan slug URL atau UUID.
+Akses     : Publik
+Response 200 OK:
+{
+  "success": true,
+  "message": "Detail dokter ditemukan.",
+  "data": {
+    "id": "1",
+    "name": "dr. Amanda Saraswati, Sp.OG",
+    "slug": "dr-amanda-saraswati-spog",
+    "specialty": "Kandungan",
+    "subspecialty": "Fetomaternal, ERACS & Fertilitas",
+    "status": "Aktif",
+    "schedule": "Senin - Jumat, 08:00 - 14:00",
+    "sipNumber": "503/SIP.DS/DPM-PTSP/2021",
+    "poliklinik": "Poli Obgyn Lantai 2",
+    "image": "https://storage.sayangibu.co.id/doctors/dr-amanda.jpg",
+    "bio": "Spesialis kebidanan dan kandungan dengan pengalaman...",
+    "education": [
+      "Spesialis Obstetri & Ginekologi - FK Universitas Andalas",
+      "Pendidikan Dokter Umum - Universitas Padjadjaran"
+    ]
+  }
+}
+Response 404 Not Found:
+{
+  "success": false,
+  "message": "Dokter tidak ditemukan.",
+  "errors": null
+}
+
+---
+
+[POST] /api/v1/doctors
+Deskripsi : Menambahkan dokter baru ke direktori.
+Akses     : Terproteksi (Super Admin, Admin)
+Request Headers:
+  Authorization: Bearer <token>
+  Content-Type: application/json
+Request Body:
+{
+  "name": "dr. Budi Santoso, Sp.A",
+  "specialty": "Anak",
+  "subspecialty": "Tumbuh Kembang & Pediatrik Sosial",
+  "status": "Aktif",
+  "schedule": "Selasa & Kamis, 14:00 - 20:00",
+  "sipNumber": "503/SIP.DS/DPM-PTSP/2020",
+  "poliklinik": "Poli Anak Lantai 1",
+  "image": "https://storage.sayangibu.co.id/doctors/dr-budi.jpg",
+  "bio": "Dokter spesialis anak dengan keahlian nutrisi dan tumbuh kembang anak.",
+  "education": [
+    "Spesialis Anak - FK Universitas Indonesia",
+    "Pendidikan Dokter - Universitas Gadjah Mada"
+  ]
+}
+Response 201 Created:
+{
+  "success": true,
+  "message": "Dokter baru berhasil ditambahkan.",
+  "data": {
+    "id": "2",
+    "slug": "dr-budi-santoso-spa",
+    "name": "dr. Budi Santoso, Sp.A",
+    "specialty": "Anak"
+  }
+}
+
+---
+
+[PUT] /api/v1/doctors/:id
+Deskripsi : Memperbarui data dokter yang sudah ada.
+Akses     : Terproteksi (Super Admin, Admin)
+
+---
+
+[DELETE] /api/v1/doctors/:id
+Deskripsi : Menghapus dokter dari sistem.
+Akses     : Terproteksi (Super Admin, Admin)
+Response 200 OK:
+{
+  "success": true,
+  "message": "Data dokter berhasil dihapus."
+}
+
+
+--------------------------------------------------------------------------------
+3.3 MODUL 3: LAYANAN MEDIS & POLIKLINIK (SERVICES)
+--------------------------------------------------------------------------------
+
+[GET] /api/v1/services
+Deskripsi : Mengambil seluruh layanan kesehatan rumah sakit.
+Akses     : Publik
+Query Parameters:
+  - category : string ("Poliklinik", "Penunjang Medis", "Rawat Inap")
+  - status   : string ("Aktif", "Nonaktif")
+  - search   : string
+Response 200 OK:
+{
+  "success": true,
+  "message": "Daftar layanan berhasil diambil.",
+  "data": [
+    {
+      "id": "1",
+      "name": "Kandungan & Kebidanan (Obgyn)",
+      "slug": "kandungan-kebidanan",
+      "category": "Poliklinik",
+      "status": "Aktif",
+      "description": "Pelayanan komprehensif bagi kesehatan reproduksi wanita...",
+      "image": "https://storage.sayangibu.co.id/services/obgyn.jpg",
+      "operationalHours": "Senin - Sabtu: 08:00 - 20:00 (UGD 24 Jam)",
+      "facilities": [
+        "Pemeriksaan USG 2D/3D/4D Fetomaternal",
+        "Kamar Bersalin (VK) Standar Modern",
+        "Persalinan Normal & Operasi Caesar Metode ERACS"
+      ]
+    }
+  ]
+}
+
+---
+
+[GET] /api/v1/services/:slugOrId
+Deskripsi : Mengambil detail layanan berdasarkan slug atau id.
+Akses     : Publik
+
+---
+
+[POST] /api/v1/services
+Deskripsi : Tambah layanan baru.
+Akses     : Terproteksi (Super Admin, Admin)
+Request Body:
+{
+  "name": "Laboratorium 24 Jam",
+  "category": "Penunjang Medis",
+  "status": "Aktif",
+  "description": "Layanan pemeriksaan sampel darah dan laboratorium siaga 24 jam.",
+  "image": "https://storage.sayangibu.co.id/services/lab.jpg",
+  "operationalHours": "24 Jam Penuh Setiap Hari",
+  "facilities": [
+    "Pemeriksaan Darah Lengkap Otomatis",
+    "Tes Hormon Kehamilan & TORCH"
+  ]
+}
+
+---
+
+[PUT] /api/v1/services/:id
+Deskripsi : Edit data layanan.
+Akses     : Terproteksi (Super Admin, Admin)
+
+---
+
+[DELETE] /api/v1/services/:id
+Deskripsi : Hapus layanan.
+Akses     : Terproteksi (Super Admin, Admin)
+
+
+--------------------------------------------------------------------------------
+3.4 MODUL 4: ARTIKEL & BERITA EDUKASI (ARTICLES)
+--------------------------------------------------------------------------------
+
+[GET] /api/v1/articles
+Deskripsi : Mengambil daftar artikel edukasi medis.
+Akses     : Publik
+Query Parameters:
+  - category : string (filter kategori artikel)
+  - status   : string ("Published" / "Draft" - publik hanya dapat status Published)
+  - search   : string (cari di judul dan konten)
+  - page     : integer
+  - limit    : integer
+Response 200 OK:
+{
+  "success": true,
+  "message": "Daftar artikel berhasil diambil.",
+  "data": [
+    {
+      "id": "1",
+      "title": "Mengenal Persalinan Metode ERACS: Cepat Pulih & Minim Nyeri",
+      "slug": "mengenal-persalinan-metode-eracs",
+      "category": "Kebidanan & Kandungan",
+      "date": "14 Okt 2024",
+      "status": "Published",
+      "author": "Tim Medis RSIA Sayang Ibu",
+      "content": "<h2>Apa itu ERACS?</h2><p>Enhanced Recovery After Cesarean Surgery...</p>",
+      "image": "https://storage.sayangibu.co.id/articles/eracs.jpg",
+      "tags": ["Persalinan", "ERACS", "Melahirkan Nyaman"]
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 10,
+    "totalItems": 1,
+    "totalPages": 1
+  }
+}
+
+---
+
+[GET] /api/v1/articles/:slugOrId
+Deskripsi : Mengambil isi lengkap artikel publikasi.
+Akses     : Publik
+
+---
+
+[POST] /api/v1/articles
+Deskripsi : Menerbitkan atau membuat draft artikel baru.
+Akses     : Terproteksi (Super Admin, Admin, Editor)
+Request Body:
+{
+  "title": "Pentingnya Imunisasi Dasar Lengkap pada Bayi",
+  "category": "Kesehatan Anak",
+  "status": "Published",
+  "author": "dr. Budi Santoso, Sp.A",
+  "content": "<p>Imunisasi memberikan perlindungan optimal bagi tumbuh kembang anak...</p>",
+  "image": "https://storage.sayangibu.co.id/articles/imunisasi.jpg",
+  "tags": ["Imunisasi", "Bayi Sehat", "Pediatri"]
+}
+Response 201 Created
+
+---
+
+[PUT] /api/v1/articles/:id
+Deskripsi : Update artikel.
+Akses     : Terproteksi (Super Admin, Admin, Editor)
+
+---
+
+[DELETE] /api/v1/articles/:id
+Deskripsi : Hapus artikel.
+Akses     : Terproteksi (Super Admin, Admin)
+
+
+--------------------------------------------------------------------------------
+3.5 MODUL 5: IKLAN & PROMO MICROSITE (ADS / PROMOS)
+--------------------------------------------------------------------------------
+
+[GET] /api/v1/ads
+Deskripsi : Mengambil daftar promo aktif atau draft.
+Akses     : Publik
+
+---
+
+[GET] /api/v1/ads/:slugOrId
+Deskripsi : Mengambil detail landing page microsite promo untuk SEO Google Ads.
+Akses     : Publik
+
+---
+
+[POST] /api/v1/ads
+Deskripsi : Membuat promo baru.
+Akses     : Terproteksi (Super Admin, Admin, Editor)
+Request Body:
+{
+  "title": "Paket Persalinan Caesar ERACS 2026 - Nyaman & Cepat Pulih",
+  "badge": "Diskon 20% Terbatas",
+  "price": "Rp 6.800.000",
+  "originalPrice": "Rp 8.500.000",
+  "startDate": "2026-01-01",
+  "endDate": "2026-12-31",
+  "status": "Aktif",
+  "content": "Sambut kelahiran buah hati dengan metode persalinan ERACS minim nyeri...",
+  "image": "https://storage.sayangibu.co.id/promos/eracs-promo.jpg",
+  "highlights": [
+    "Dapat duduk 2 jam pasca operasi",
+    "Kamar rawat inap VIP ber-AC",
+    "Free dokumentasi persalinan"
+  ],
+  "targetKeywords": "promo melahirkan batusangkar, persalinan eracs tanah datar",
+  "contactWa": "+6281123456789"
+}
+
+---
+
+[PUT] /api/v1/ads/:id
+Deskripsi : Update promo.
+Akses     : Terproteksi (Super Admin, Admin, Editor)
+
+---
+
+[DELETE] /api/v1/ads/:id
+Deskripsi : Hapus promo.
+Akses     : Terproteksi (Super Admin, Admin)
+
+
+--------------------------------------------------------------------------------
+3.6 MODUL 6: PENDAFTARAN ONLINE / ANTREAN PASIEN (APPOINTMENTS)
+--------------------------------------------------------------------------------
+
+[POST] /api/v1/appointments
+Deskripsi : Endpoint pendaftaran online publik yang diisi oleh pasien/keluarga pasien.
+Akses     : Publik (Website Pasien)
+Validasi Backend Wajib:
+  1. Periksa apakah sistem pendaftaran sedang DIBUKA (registration_settings.is_open === true).
+     Jika ditutup, tolak dengan HTTP 403:
+     { "success": false, "message": "Pendaftaran online saat ini sedang ditutup oleh pihak rumah sakit." }
+  2. Periksa apakah kuota harian tercukupi (count(appointments pada tanggal tersebut) < max_daily_quota).
+     Jika kuota penuh, tolak dengan HTTP 422:
+     { "success": false, "message": "Mohon maaf, kuota pendaftaran online untuk tanggal tersebut telah penuh." }
+Request Headers:
+  Content-Type: application/json
+Request Body:
+{
+  "patientName": "Ny. Siti Aisyah",
+  "phone": "081298765432",
+  "patientType": "baru", // "baru" | "lama"
+  "paymentMethod": "bpjs", // "umum" | "bpjs" | "asuransi"
+  "serviceId": "1",
+  "doctorId": "1",
+  "date": "2026-10-15",
+  "notes": "Pemeriksaan kehamilan trimester 3 dan kontrol USG 4D."
+}
+Response 201 Created:
+{
+  "success": true,
+  "message": "Pendaftaran online Anda berhasil tercatat.",
+  "data": {
+    "id": "REG-839201",
+    "patientName": "Ny. Siti Aisyah",
+    "phone": "081298765432",
+    "patientType": "baru",
+    "paymentMethod": "bpjs",
+    "serviceName": "Kandungan & Kebidanan (Obgyn)",
+    "doctorName": "dr. Amanda Saraswati, Sp.OG",
+    "date": "2026-10-15",
+    "time": "09:00",
+    "status": "Menunggu",
+    "createdAt": "2026-09-21 15:45:00"
+  }
+}
+
+---
+
+[GET] /api/v1/appointments
+Deskripsi : Mengambil antrean pendaftaran online untuk Admin CMS.
+Akses     : Terproteksi (Super Admin, Admin)
+Query Parameters:
+  - date    : string (filter tanggal: YYYY-MM-DD)
+  - status  : string ("Menunggu", "Dikonfirmasi", "Selesai", "Batal")
+  - search  : string (cari nama pasien, nomor antrean, dokter)
+  - page    : integer
+  - limit   : integer
+Response 200 OK:
+{
+  "success": true,
+  "message": "Daftar pendaftaran pasien berhasil diambil.",
+  "data": [
+    {
+      "id": "REG-839201",
+      "patientName": "Ny. Siti Aisyah",
+      "phone": "081298765432",
+      "patientType": "baru",
+      "paymentMethod": "bpjs",
+      "serviceId": "1",
+      "serviceName": "Kandungan & Kebidanan (Obgyn)",
+      "doctorId": "1",
+      "doctorName": "dr. Amanda Saraswati, Sp.OG",
+      "date": "2026-10-15",
+      "time": "09:00",
+      "notes": "Pemeriksaan kehamilan trimester 3...",
+      "status": "Menunggu",
+      "createdAt": "21 Sep 2026, 15:45"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "totalItems": 1,
+    "totalPages": 1
+  }
+}
+
+---
+
+[GET] /api/v1/appointments/:id
+Deskripsi : Mengambil rincian detail 1 antrean pasien berdasarkan No. Registrasi.
+Akses     : Terproteksi (Super Admin, Admin)
+
+---
+
+[PATCH] /api/v1/appointments/:id/status
+Deskripsi : Mengubah status antrean (Konfirmasi, Selesai, Batal).
+Akses     : Terproteksi (Super Admin, Admin)
+Request Body:
+{
+  "status": "Dikonfirmasi" // 'Menunggu' | 'Dikonfirmasi' | 'Selesai' | 'Batal'
+}
+Response 200 OK:
+{
+  "success": true,
+  "message": "Status pendaftaran berhasil diperbarui.",
+  "data": {
+    "id": "REG-839201",
+    "status": "Dikonfirmasi"
+  }
+}
+
+---
+
+[DELETE] /api/v1/appointments/:id
+Deskripsi : Menghapus riwayat pendaftaran.
+Akses     : Terproteksi (Super Admin, Admin)
+
+
+--------------------------------------------------------------------------------
+3.7 MODUL 7: LOWONGAN KERJA / KARIR (VACANCIES)
+--------------------------------------------------------------------------------
+
+[GET] /api/v1/vacancies
+Deskripsi : Mengambil formasi lowongan kerja rumah sakit.
+Akses     : Publik (hanya status Published) / CMS (semua status)
+
+---
+
+[POST] /api/v1/vacancies
+Deskripsi : Membuka formasi lowongan baru.
+Akses     : Terproteksi (Super Admin, Admin)
+Request Body:
+{
+  "title": "Perawat Pelaksana (IGD)",
+  "department": "Keperawatan",
+  "type": "Full Time",
+  "location": "Batusangkar",
+  "experience": "Minimal 1 Tahun di Rumah Sakit",
+  "deadline": "2026-12-31",
+  "status": "Published",
+  "description": "<p>Menangani kegawatdaruratan maternal dan neonatal di IGD...</p>",
+  "requirements": "<p>- Pendidikan S1 Ners<br>- STR Aktif<br>- Sertifikat BTCLS</p>",
+  "contactEmail": "hrd@sayangibu.co.id",
+  "contactWa": "+6281123456789"
+}
+
+---
+
+[PUT] /api/v1/vacancies/:id
+Deskripsi : Update lowongan.
+Akses     : Terproteksi (Super Admin, Admin)
+
+---
+
+[DELETE] /api/v1/vacancies/:id
+Deskripsi : Hapus lowongan.
+Akses     : Terproteksi (Super Admin, Admin)
+
+
+--------------------------------------------------------------------------------
+3.8 MODUL 8: MEDIA STORAGE & LIBRARY (MEDIA)
+--------------------------------------------------------------------------------
+
+[GET] /api/v1/media
+Deskripsi : Mengambil berkas media yang tersimpan di storage server/CDN.
+Akses     : Terproteksi (Super Admin, Admin, Editor)
+Query Parameters:
+  - type   : string ("all", "slideshow", "website_image", "video", "document")
+  - search : string (nama file)
+Response 200 OK:
+{
+  "success": true,
+  "message": "Daftar media berhasil diambil.",
+  "data": [
+    {
+      "id": "1",
+      "name": "gedung-rsia-sayang-ibu.webp",
+      "type": "website_image",
+      "url": "https://storage.sayangibu.co.id/uploads/gedung.webp",
+      "size": "1.2 MB",
+      "date": "21 Sep 2026"
+    }
+  ]
+}
+
+---
+
+[POST] /api/v1/media/upload
+Deskripsi : Mengunggah berkas gambar / dokumen ke media library.
+Akses     : Terproteksi (Super Admin, Admin, Editor)
+Request Headers:
+  Content-Type: multipart/form-data
+  Authorization: Bearer <token>
+Form Data:
+  - file: Binary File (JPG, PNG, WebP, PDF - Maks 5 MB)
+  - type: string (opsional: "website_image", "slideshow", dll.)
+Response 201 Created:
+{
+  "success": true,
+  "message": "Berkas media berhasil diunggah.",
+  "data": {
+    "id": "10",
+    "name": "banner-promo-eracs.webp",
+    "type": "website_image",
+    "url": "https://storage.sayangibu.co.id/uploads/banner-promo-eracs.webp",
+    "size": "850 KB",
+    "date": "21 Sep 2026"
+  }
+}
+
+---
+
+[DELETE] /api/v1/media/:id
+Deskripsi : Menghapus berkas dari cloud storage / server.
+Akses     : Terproteksi (Super Admin, Admin)
+
+
+--------------------------------------------------------------------------------
+3.9 MODUL 9: PENGATURAN GLOBAL WEBSITE & PENDAFTARAN (SETTINGS)
+--------------------------------------------------------------------------------
+
+[GET] /api/v1/settings
+Deskripsi : Mengambil konfigurasi profil rumah sakit (alamat, kontak darurat, IG, dll.).
+Akses     : Publik
+Response 200 OK:
+{
+  "success": true,
+  "message": "Pengaturan website berhasil diambil.",
+  "data": {
+    "hospitalName": "RSIA Sayang Ibu",
+    "slogan": "Pelayanan Medis Sepenuh Hati",
+    "aboutText": "RSIA Sayang Ibu Batusangkar berdedikasi...",
+    "operationalHours": "UGD 24 Jam | Poli: Senin - Sabtu 08:00 - 20:00",
+    "logoUrl": "/logo-sayang-ibu-sm.png",
+    "phoneCs": "(0752) 12345",
+    "phoneEmergency": "(0752) 12345",
+    "whatsapp": "+6281123456789",
+    "email": "info@sayangibu.co.id",
+    "address": "Batusangkar, Kab. Tanah Datar, Sumatera Barat",
+    "mapsUrl": "https://maps.google.com/?q=RSIA+Sayang+Ibu+Batusangkar",
+    "mapsEmbed": "<iframe ...></iframe>",
+    "instagram": "https://instagram.com/rsiasayangibu",
+    "facebook": "https://facebook.com/rsiasayangibu",
+    "youtube": "",
+    "tiktok": ""
+  }
+}
+
+---
+
+[PUT] /api/v1/settings
+Deskripsi : Memperbarui konfigurasi profil rumah sakit.
+Akses     : Terproteksi (Super Admin)
+Request Body:
+{
+  "hospitalName": "RSIA Sayang Ibu",
+  "slogan": "Pelayanan Medis Sepenuh Hati",
+  "aboutText": "Pusat rujukan kesehatan ibu dan anak terpercaya...",
+  "operationalHours": "UGD Siaga 24 Jam Penuh",
+  "logoUrl": "https://storage.sayangibu.co.id/brand/logo.png",
+  "phoneCs": "0752-71234",
+  "phoneEmergency": "0752-71999",
+  "whatsapp": "+6281234567890",
+  "email": "kontak@sayangibu.co.id",
+  "address": "Jl. Soekarno Hatta No. 123, Batusangkar, Kab. Tanah Datar, Sumatera Barat",
+  "mapsUrl": "https://maps.google.com/...",
+  "mapsEmbed": "<iframe src='...'></iframe>",
+  "instagram": "https://instagram.com/rsiasayangibu",
+  "facebook": "https://facebook.com/rsiasayangibu",
+  "youtube": "https://youtube.com/@rsiasayangibu",
+  "tiktok": ""
+}
+Response 200 OK
+
+---
+
+[GET] /api/v1/settings/registration
+Deskripsi : Mengambil pengaturan form pendaftaran online.
+Akses     : Publik
+Response 200 OK:
+{
+  "success": true,
+  "message": "Pengaturan pendaftaran berhasil diambil.",
+  "data": {
+    "isOpen": true,
+    "maxDailyQuota": 50,
+    "noticeMessage": "Harap hadir 30 menit sebelum jadwal praktik dokter."
+  }
+}
+
+---
+
+[PUT] /api/v1/settings/registration
+Deskripsi : Mengatur buka/tutup pendaftaran online dan kuota antrean harian.
+Akses     : Terproteksi (Super Admin, Admin)
+Request Body:
+{
+  "isOpen": true,
+  "maxDailyQuota": 60,
+  "noticeMessage": "Pendaftaran online untuk jadwal dokter hari libur nasional ditutup sementara."
+}
+Response 200 OK
+
+
+--------------------------------------------------------------------------------
+3.10 MODUL 10: METRIK DASHBOARD CMS (DASHBOARD STATS)
+--------------------------------------------------------------------------------
+
+[GET] /api/v1/dashboard/stats
+Deskripsi : Mengambil ringkasan metrik statistik untuk kartu dashboard admin.
+Akses     : Terproteksi (Super Admin, Admin, Editor)
+Response 200 OK:
+{
+  "success": true,
+  "message": "Statistik dashboard berhasil diambil.",
+  "data": {
+    "totalDoctors": 14,
+    "totalServices": 8,
+    "totalArticles": 25,
+    "totalAppointmentsToday": 12,
+    "recentAppointments": [
+      {
+        "id": "REG-839201",
+        "patientName": "Ny. Siti Aisyah",
+        "doctorName": "dr. Amanda Saraswati, Sp.OG",
+        "date": "2026-09-21",
+        "status": "Menunggu"
+      }
+    ]
+  }
+}
+
+
+--------------------------------------------------------------------------------
+3.11 MODUL 11: MANAJEMEN PENGGUNA CMS (USERS)
+--------------------------------------------------------------------------------
+
+[GET] /api/v1/users
+Deskripsi : Mengambil daftar seluruh akun pengelola CMS.
+Akses     : Terproteksi (Super Admin)
+Response 200 OK:
+{
+  "success": true,
+  "message": "Daftar pengguna CMS berhasil diambil.",
+  "data": [
+    {
+      "id": "1",
+      "name": "dr. Budi Santoso",
+      "email": "budi.admin@sayangibu.co.id",
+      "role": "Super Admin",
+      "lastLogin": "21 Sep 2026, 08:30"
+    }
+  ]
+}
+
+---
+
+[POST] /api/v1/users
+Deskripsi : Menambahkan pengguna / staf admin baru.
+Akses     : Terproteksi (Super Admin)
+Request Body:
+{
+  "name": "Siti Rahmawati",
+  "email": "siti.marketing@sayangibu.co.id",
+  "password": "PasswordKuat123!",
+  "role": "Editor" // 'Super Admin' | 'Admin' | 'Editor'
+}
+Response 201 Created
+
+---
+
+[PUT] /api/v1/users/:id
+Deskripsi : Mengubah nama, email, role, atau password pengguna.
+Akses     : Terproteksi (Super Admin)
+
+---
+
+[DELETE] /api/v1/users/:id
+Deskripsi : Menghapus akses pengguna CMS.
+Akses     : Terproteksi (Super Admin)
+
+
+================================================================================
+4. CONTOH FLOW INTEGRASI FRONTEND-BACKEND
+================================================================================
+
+Flow 1: Pendaftaran Online Pasien (Public Booking)
+1. Pasien membuka halaman `/pendaftaran` di browser.
+2. Frontend memanggil `GET /api/v1/settings/registration` untuk mengecek status form.
+   - Jika `isOpen: false`, form dikunci dan pesan pengumuman ditampilkan.
+3. Frontend memanggil `GET /api/v1/services` dan `GET /api/v1/doctors?status=Aktif` untuk mengisi dropdown poliklinik dan dokter.
+4. Pasien mengisi formulir dan menekan tombol submit.
+5. Frontend memanggil `POST /api/v1/appointments` dengan payload data pasien.
+6. Backend memvalidasi ketersediaan kuota dan menyimpan data ke database dengan status "Menunggu".
+7. Backend mengembalikan No. Registrasi (contoh: "REG-839201").
+8. Pasien menerima konfirmasi bukti registrasi di layar.
+9. Petugas admin membuka `/admin/appointments`, melihat antrean masuk secara real-time, lalu mengubah status menjadi "Dikonfirmasi" atau "Selesai".
+
+Flow 2: Autentikasi Pengelola CMS
+1. Admin mengakses `/login`.
+2. Admin memasukkan email dan password, lalu klik Masuk.
+3. Frontend mengirimkan `POST /api/v1/auth/login`.
+4. Backend memverifikasi hash bcrypt password di database.
+5. Jika valid, backend menerbitkan JWT token dan mengembalikan data role akun.
+6. Frontend menyimpan JWT token di `localStorage` atau `HttpOnly Cookie`.
+7. Setiap request admin berikutnya menyertakan header `Authorization: Bearer <token>`.
+
+
+================================================================================
+5. CHECKLIST DEPLOYMENT & SECURITY UNTUK BACKEND DEVELOPER
+================================================================================
+[x] 1. CORS Configuration:
+       Pastikan backend mengizinkan origin domain frontend, contoh:
+       - Development: http://localhost:5173, http://localhost:3000
+       - Production : https://sayangibu.co.id, https://www.sayangibu.co.id
+[x] 2. Password Hashing:
+       Gunakan algoritma bcrypt atau Argon2 dengan cost factor minimal 10. Jangan pernah menyimpan password dalam bentuk plaintext.
+[x] 3. Input Validation & Sanitization:
+       Sanitasi seluruh input pengguna untuk mencegah SQL Injection dan Cross-Site Scripting (XSS), terutama pada field Rich Text content (artikel).
+[x] 4. Rate Limiting:
+       Terapkan rate limit pada endpoint publik pendaftaran `POST /api/v1/appointments` dan endpoint login `POST /api/v1/auth/login` (misal: maks 10 request per menit per IP) untuk mencegah spam bot dan brute force.
+[x] 5. Upload File Handling:
+       - Batasi jenis MIME type hanya gambar (image/jpeg, image/png, image/webp) dan dokumen (application/pdf).
+       - Batasi ukuran file maksimal 5 MB.
+       - Simpan file ke cloud bucket seperti AWS S3, Cloudflare R2, atau Google Cloud Storage.
+[x] 6. Logging & Monitoring:
+       Catat aktivitas perubahan status antrean pasien dan penulisan konten oleh pengguna CMS (Audit Trail).
+
+================================================================================
+AKHIR DOKUMENTASI API BACKEND RSIA SAYANG IBU (V2)
+================================================================================

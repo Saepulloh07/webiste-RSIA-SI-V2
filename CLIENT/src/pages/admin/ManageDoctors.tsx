@@ -98,6 +98,11 @@ export default function ManageDoctors() {
 
         {/* Mobile View: Responsive Card List */}
         <div className="block md:hidden divide-y divide-slate-100">
+          {doctors.length === 0 && (
+            <div className="p-8 text-center text-slate-500 text-xs">
+              Belum ada dokter terdaftar. Klik "Tambah Dokter" untuk menambahkan dokter baru.
+            </div>
+          )}
           {doctors
             .filter(d => d.name.toLowerCase().includes(search.toLowerCase()) || d.specialty.toLowerCase().includes(search.toLowerCase()))
             .map((doc) => (
@@ -159,6 +164,13 @@ export default function ManageDoctors() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {doctors.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center py-10 text-slate-500 text-xs">
+                    Belum ada dokter terdaftar. Klik "Tambah Dokter" untuk menambahkan dokter baru.
+                  </TableCell>
+                </TableRow>
+              )}
               {doctors
                 .filter(d => d.name.toLowerCase().includes(search.toLowerCase()) || d.specialty.toLowerCase().includes(search.toLowerCase()))
                 .map((doc) => (

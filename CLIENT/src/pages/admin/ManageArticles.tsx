@@ -103,6 +103,11 @@ export default function ManageArticles() {
 
         {/* Mobile View: Responsive Card List */}
         <div className="block md:hidden divide-y divide-slate-100">
+          {articles.length === 0 && (
+            <div className="p-8 text-center text-slate-500 text-xs">
+              Belum ada artikel. Klik "Tulis Artikel" untuk membuat publikasi edukasi baru.
+            </div>
+          )}
           {articles
             .filter(a => a.title.toLowerCase().includes(search.toLowerCase()) || a.category.toLowerCase().includes(search.toLowerCase()))
             .map((article) => (
@@ -155,6 +160,13 @@ export default function ManageArticles() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {articles.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-10 text-slate-500 text-xs">
+                    Belum ada artikel. Klik "Tulis Artikel" untuk membuat publikasi edukasi baru.
+                  </TableCell>
+                </TableRow>
+              )}
               {articles
                 .filter(a => a.title.toLowerCase().includes(search.toLowerCase()) || a.category.toLowerCase().includes(search.toLowerCase()))
                 .map((article) => (

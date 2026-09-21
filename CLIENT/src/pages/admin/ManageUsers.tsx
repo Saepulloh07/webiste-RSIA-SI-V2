@@ -79,6 +79,11 @@ export default function ManageUsers() {
         
         {/* Mobile View: Responsive Cards */}
         <div className="block md:hidden divide-y divide-slate-100">
+          {users.length === 0 && (
+            <div className="p-8 text-center text-xs text-slate-500">
+              Belum ada data pengguna CMS. Klik "Tambah Pengguna" untuk menambahkan akun pengelola.
+            </div>
+          )}
           {filteredUsers.map((user) => (
             <div key={user.id} className="p-3.5 space-y-2.5">
               <div className="flex items-start justify-between gap-2.5">
@@ -147,6 +152,13 @@ export default function ManageUsers() {
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-slate-100">
+              {users.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="py-10 text-center text-slate-500 text-xs">
+                    Belum ada data pengguna CMS. Klik "Tambah Pengguna" untuk menambahkan akun pengelola.
+                  </td>
+                </tr>
+              )}
               {filteredUsers.map((user) => (
                 <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-3 px-4">
