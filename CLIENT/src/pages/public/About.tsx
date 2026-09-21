@@ -5,8 +5,8 @@ import { MediaWatermark } from "@/components/common/MediaWatermark";
 
 export default function About() {
   const { settings, media } = useStore();
-  const hospitalImage = media.find(m => m.type === 'website_image' && m.name === 'hero-banner') || 
-    media.find(m => m.type === 'website_image') || 
+  const hospitalImage = media.find(m => m.type === 'website_image' && m.name === 'hero-banner') ||
+    media.find(m => m.type === 'website_image') ||
     { url: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=1200&auto=format&fit=crop' };
 
   return (
@@ -23,7 +23,7 @@ export default function About() {
             Tentang {settings.hospitalName || "RSIA Sayang Ibu"}
           </h1>
           <p className="text-white/90 text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
-            {settings.slogan || "Mengenal lebih dekat dedikasi dan komitmen kami dalam menghadirkan pelayanan kesehatan ibu dan anak yang paripurna."}
+            {settings.slogan || "Mengenal lebih dekat dedikasi dan komitmen kami dalam menghadirkan pelayanan kesehatan keluarga yang paripurna."}
           </p>
         </div>
       </div>
@@ -31,15 +31,15 @@ export default function About() {
       <div className="container mx-auto px-4 -mt-14 relative z-10 max-w-5xl">
         {/* Hospital Visual Banner with Watermark */}
         <div className="mb-10 rounded-3xl overflow-hidden shadow-2xl border-4 border-white aspect-[16/8] md:aspect-[21/9] relative bg-slate-100">
-          <img 
-            src={hospitalImage.url} 
+          <img
+            src={hospitalImage.url}
             alt={settings.hospitalName || "Gedung RSIA Sayang Ibu"}
             loading="lazy"
             decoding="async"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10"></div>
-          
+
           {/* Proportional Watermark on Hospital Image */}
           <MediaWatermark size="lg" />
 
@@ -57,7 +57,7 @@ export default function About() {
             </h2>
             <div className="text-slate-600 leading-relaxed space-y-4 text-base">
               <p>
-                {settings.aboutText || `${settings.hospitalName || "RSIA Sayang Ibu Batusangkar"} telah menjadi pusat rujukan utama untuk kesehatan ibu dan anak di wilayah Batusangkar dan sekitarnya.`}
+                {settings.aboutText || `${settings.hospitalName || "RSIA Sayang Ibu Batusangkar"} telah menjadi pusat rujukan utama untuk kesehatan keluarga di wilayah Batusangkar dan sekitarnya.`}
               </p>
               <p>
                 Kami memadukan keahlian tenaga dokter spesialis berpengalaman, perawat dan bidan yang berdedikasi tinggi, teknologi medis diagnostik modern (seperti USG 4D Fetomaternal dan metode operasi ERACS), serta sentuhan empati keluarga untuk memberikan pengalaman perawatan yang aman, nyaman, dan menenangkan.
@@ -78,11 +78,11 @@ export default function About() {
               </div>
               <h2 className="text-xl font-bold font-heading mb-3 text-slate-900">Visi Kami</h2>
               <p className="text-slate-600 leading-relaxed text-sm md:text-base">
-                Menjadi Rumah Sakit Ibu dan Anak pilihan utama dan terpercaya yang memberikan pelayanan kesehatan berkualitas prima, modern, dan humanis di wilayah Sumatera Barat.
+                Menjadi Rumah Sakit keluarga pilihan utama dan terpercaya yang memberikan pelayanan kesehatan berkualitas prima, modern, dan humanis di wilayah Sumatera Barat.
               </p>
             </CardContent>
           </Card>
-          
+
           <Card className="shadow-md border border-amber-100 hover:border-amber-300 transition-all rounded-3xl bg-white">
             <CardContent className="p-8">
               <div className="w-12 h-12 bg-amber-50 border border-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mb-6">
@@ -92,7 +92,7 @@ export default function About() {
               <ul className="space-y-3 text-slate-600 text-sm md:text-base">
                 <li className="flex gap-3">
                   <div className="w-2 h-2 rounded-full bg-amber-500 mt-2 shrink-0" />
-                  <span>Memberikan pelayanan kesehatan ibu dan anak yang paripurna dan profesional.</span>
+                  <span>Memberikan pelayanan kesehatan keluarga yang paripurna dan profesional.</span>
                 </li>
                 <li className="flex gap-3">
                   <div className="w-2 h-2 rounded-full bg-primary mt-2 shrink-0" />
@@ -118,7 +118,7 @@ export default function About() {
               <h3 className="font-bold font-heading mb-1.5 text-slate-900">Empati & Kasih</h3>
               <p className="text-xs text-slate-600">Melayani dengan tulus dan penuh kasih sayang layaknya keluarga sendiri.</p>
             </div>
-            
+
             <div className="bg-white p-6 rounded-2xl border border-amber-100 text-center shadow-sm hover:shadow-md transition-shadow">
               <div className="mx-auto w-12 h-12 bg-amber-50 text-amber-700 rounded-2xl flex items-center justify-center mb-4">
                 <ShieldCheck className="w-6 h-6" />

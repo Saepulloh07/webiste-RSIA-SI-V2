@@ -54,8 +54,8 @@ export default function DoctorDetail() {
       <div className="bg-gradient-to-r from-primary via-rose-600 to-amber-600 text-white pt-10 pb-32 px-4 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4"></div>
         <div className="container mx-auto max-w-5xl relative z-10">
-          <Link 
-            to="/dokter" 
+          <Link
+            to="/dokter"
             className="inline-flex items-center gap-2 text-white/90 hover:text-white transition-colors mb-6 text-xs md:text-sm font-semibold bg-white/10 px-3.5 py-1.5 rounded-full backdrop-blur-sm border border-white/20"
           >
             <ArrowLeft className="w-4 h-4" /> Kembali ke Direktori Dokter
@@ -69,15 +69,15 @@ export default function DoctorDetail() {
           <div className="md:col-span-1">
             <Card className="shadow-xl border border-amber-100 rounded-3xl overflow-hidden bg-white sticky top-24">
               <div className="aspect-[4/5] bg-slate-100 relative overflow-hidden">
-                <img 
-                  src={doctorImage} 
-                  alt={doctor.name} 
+                <img
+                  src={doctorImage}
+                  alt={doctor.name}
                   loading="lazy"
                   decoding="async"
                   className="w-full h-full object-cover object-top"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-40"></div>
-                
+
                 {/* Proportional Watermark on Doctor Photo */}
                 <MediaWatermark size="sm" />
 
@@ -96,7 +96,7 @@ export default function DoctorDetail() {
                 <h1 className="text-xl md:text-2xl font-bold font-heading mb-1 text-slate-900 leading-snug">
                   {doctor.name}
                 </h1>
-                
+
                 {doctor.subspecialty && (
                   <p className="text-xs text-primary font-semibold mb-2">
                     {doctor.subspecialty}
@@ -124,9 +124,9 @@ export default function DoctorDetail() {
                     )}
                   </div>
                 )}
-                
-                <Button 
-                  className="w-full h-12 rounded-2xl bg-gradient-to-r from-primary to-amber-600 hover:from-primary/90 hover:to-amber-600/90 text-white font-bold shadow-md shadow-primary/20" 
+
+                <Button
+                  className="w-full h-12 rounded-2xl bg-gradient-to-r from-primary to-amber-600 hover:from-primary/90 hover:to-amber-600/90 text-white font-bold shadow-md shadow-primary/20"
                   asChild
                 >
                   <Link to={`/pendaftaran?dokter=${encodeURIComponent(doctor.name)}`}>
@@ -146,7 +146,7 @@ export default function DoctorDetail() {
                   Profil & Dedikasi Klinis
                 </h2>
                 <p className="text-slate-600 leading-relaxed text-sm md:text-base">
-                  {doctor.bio || `${doctor.name} merupakan dokter spesialis ${doctor.specialty.toLowerCase()} yang berdedikasi dalam memberikan pelayanan kesehatan terbaik untuk ibu dan anak di ${settings.hospitalName || "RSIA Sayang Ibu Batusangkar"}. Berkomitmen penuh mengutamakan keselamatan pasien, pendekatan humanis, dan komunikasi medis yang transparan.`}
+                  {doctor.bio || `${doctor.name} merupakan dokter spesialis ${doctor.specialty.toLowerCase()} yang berdedikasi dalam memberikan pelayanan kesehatan terbaik untuk keluarga di ${settings.hospitalName || "RSIA Sayang Ibu Batusangkar"}. Berkomitmen penuh mengutamakan keselamatan pasien, pendekatan humanis, dan komunikasi medis yang transparan.`}
                 </p>
               </CardContent>
             </Card>
@@ -214,9 +214,9 @@ export default function DoctorDetail() {
                   <p className="text-[11px] text-slate-500">Hubungi call center resmi kami di {settings.phoneCs || "(0752) 123456"}</p>
                 </div>
               </div>
-              <a 
-                href={`https://wa.me/${(settings.whatsapp || "").replace(/[^0-9]/g, '')}`} 
-                target="_blank" 
+              <a
+                href={`https://wa.me/${(settings.whatsapp || "").replace(/[^0-9]/g, '')}`}
+                target="_blank"
                 rel="noreferrer"
                 className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors shrink-0"
               >

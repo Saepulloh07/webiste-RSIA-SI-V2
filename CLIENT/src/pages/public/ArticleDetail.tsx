@@ -57,11 +57,11 @@ export default function ArticleDetail() {
     }
   };
 
-  const articleKeywords = `${article.title.toLowerCase()}, ${article.category.toLowerCase()}, artikel kesehatan ibu dan anak, rsia sayang ibu batusangkar, dokter kandungan batusangkar, spesialis anak tanah datar, kesehatan batusangkar sumatera barat`;
+  const articleKeywords = `${article.title.toLowerCase()}, ${article.category.toLowerCase()}, artikel kesehatan keluarga, rsia sayang ibu batusangkar, dokter kandungan batusangkar, spesialis anak tanah datar, kesehatan batusangkar sumatera barat`;
 
   return (
     <div className="bg-gradient-to-b from-rose-50/20 via-white to-amber-50/20 min-h-screen pb-24">
-      
+
       {/* Dynamic SEO Meta & Schema for Article */}
       <SEOHead
         title={article.title}
@@ -75,8 +75,8 @@ export default function ArticleDetail() {
 
       {/* Header Banner */}
       <div className="w-full h-[36vh] md:h-[48vh] relative bg-slate-900 overflow-hidden">
-        <img 
-          src={articleImage} 
+        <img
+          src={articleImage}
           alt={article.title}
           loading="eager"
           decoding="async"
@@ -84,19 +84,19 @@ export default function ArticleDetail() {
           className="w-full h-full object-cover opacity-80"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/60 to-transparent"></div>
-        
+
         {/* Circular Watermark on Article Header Banner */}
         <MediaWatermark size="lg" />
 
         <div className="absolute inset-0 flex items-end">
           <div className="container mx-auto px-4 md:px-6 pb-8 md:pb-12 max-w-5xl">
-            <Link 
-              to="/artikel" 
+            <Link
+              to="/artikel"
               className="inline-flex items-center gap-2 text-white/90 hover:text-white transition-colors mb-4 md:mb-6 text-xs md:text-sm font-semibold bg-white/20 px-3.5 py-1.5 rounded-full backdrop-blur-md border border-white/20 w-fit"
             >
               <ArrowLeft className="w-4 h-4" /> Kembali ke Artikel
             </Link>
-            
+
             <div className="flex flex-wrap items-center gap-3 text-xs md:text-sm text-amber-200 mb-3 md:mb-4">
               <Badge className="bg-primary text-white font-bold px-3 py-1 border-0 shadow-md">
                 {article.category}
@@ -118,11 +118,11 @@ export default function ArticleDetail() {
 
       <div className="container mx-auto px-4 md:px-6 mt-8 md:mt-12 max-w-5xl">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
-          
+
           {/* Main Content */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-3xl p-6 sm:p-8 md:p-10 border border-amber-100 shadow-sm">
-              <div 
+              <div
                 className="prose prose-slate max-w-none text-slate-700 leading-relaxed text-sm md:text-base space-y-4"
                 dangerouslySetInnerHTML={{ __html: article.content }}
               />
@@ -158,11 +158,11 @@ export default function ArticleDetail() {
                 <BookOpen className="w-4 h-4 text-primary" />
                 Artikel Terkait
               </h3>
-              
+
               <div className="space-y-4">
                 {relatedArticles.map((rel) => (
-                  <Link 
-                    key={rel.id} 
+                  <Link
+                    key={rel.id}
                     to={`/artikel/${rel.slug || rel.id}`}
                     className="group block pb-4 border-b border-slate-100 last:border-0 last:pb-0"
                   >
@@ -183,10 +183,10 @@ export default function ArticleDetail() {
             <div className="bg-gradient-to-br from-rose-50 via-amber-50/50 to-emerald-50/30 rounded-3xl p-6 border border-amber-200/80 shadow-sm text-center">
               <h4 className="font-bold font-heading text-slate-900 text-base mb-2">Konsultasi dengan Ahlinya</h4>
               <p className="text-xs text-slate-600 leading-relaxed mb-5">
-                Jadwalkan pemeriksaan kesehatan ibu dan anak secara cepat dan mudah melalui reservasi online.
+                Jadwalkan pemeriksaan kesehatan keluarga secara cepat dan mudah melalui reservasi online.
               </p>
-              <Link 
-                to="/pendaftaran" 
+              <Link
+                to="/pendaftaran"
                 className="inline-flex items-center justify-center w-full py-3 rounded-xl text-xs font-bold bg-primary text-white hover:bg-primary/90 transition-colors shadow-md shadow-primary/20"
               >
                 Daftar Janji Temu <ArrowRight className="w-4 h-4 ml-1.5" />

@@ -32,7 +32,7 @@ export default function Services() {
             Layanan Unggulan Medis
           </h1>
           <p className="text-white/90 text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
-            {settings.hospitalName || "RSIA Sayang Ibu"} menghadirkan layanan spesialis ibu dan anak, fasilitas penunjang modern, dan perawatan berpusat pada keselamatan dan kenyamanan pasien.
+            {settings.hospitalName || "RSIA Sayang Ibu"} menghadirkan layanan spesialis, fasilitas penunjang modern, dan perawatan berpusat pada keselamatan dan kenyamanan pasien.
           </p>
         </div>
       </div>
@@ -41,21 +41,21 @@ export default function Services() {
       <div className="container mx-auto px-4 -mt-12 relative z-10 max-w-6xl">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
           {activeServices.map((service) => (
-            <div 
-              key={service.id} 
+            <div
+              key={service.id}
               className="bg-white rounded-3xl overflow-hidden border border-amber-100/80 shadow-sm hover:shadow-xl hover:border-amber-300 transition-all duration-300 group flex flex-col"
             >
               {/* Image & Watermark */}
               <div className="aspect-[16/10] bg-slate-100 relative overflow-hidden">
-                <img 
-                  src={service.image || "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=600&auto=format&fit=crop"} 
+                <img
+                  src={service.image || "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=600&auto=format&fit=crop"}
                   alt={service.name}
                   loading="lazy"
                   decoding="async"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity"></div>
-                
+
                 {/* Proportional Watermark */}
                 <MediaWatermark size="sm" />
 
@@ -82,7 +82,7 @@ export default function Services() {
                 </p>
 
                 <div className="pt-4 border-t border-slate-100 flex items-center justify-between mt-auto">
-                  <Link 
+                  <Link
                     to={`/layanan/${service.slug || service.id}`}
                     className="inline-flex items-center text-xs md:text-sm font-bold text-amber-700 group-hover:text-primary transition-colors"
                   >
