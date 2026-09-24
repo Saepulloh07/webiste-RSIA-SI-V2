@@ -661,120 +661,625 @@ Akses     : Terproteksi (Super Admin, Admin)
 3.6 MODUL 6: PENDAFTARAN ONLINE / ANTREAN PASIEN (APPOINTMENTS)
 --------------------------------------------------------------------------------
 
-[POST] /api/v1/appointments
-Deskripsi : Endpoint pendaftaran online publik yang diisi oleh pasien/keluarga pasien.
-Akses     : Publik (Website Pasien)
-Validasi Backend Wajib:
-  1. Periksa apakah sistem pendaftaran sedang DIBUKA (registration_settings.is_open === true).
-     Jika ditutup, tolak dengan HTTP 403:
-     { "success": false, "message": "Pendaftaran online saat ini sedang ditutup oleh pihak rumah sakit." }
-  2. Periksa apakah kuota harian tercukupi (count(appointments pada tanggal tersebut) < max_daily_quota).
-     Jika kuota penuh, tolak dengan HTTP 422:
-     { "success": false, "message": "Mohon maaf, kuota pendaftaran online untuk tanggal tersebut telah penuh." }
-Request Headers:
-  Content-Type: application/json
-Request Body:
-{
-  "patientName": "Ny. Siti Aisyah",
-  "phone": "081298765432",
-  "patientType": "baru", // "baru" | "lama"
-  "paymentMethod": "bpjs", // "umum" | "bpjs" | "asuransi"
-  "serviceId": "1",
-  "doctorId": "1",
-  "date": "2026-10-15",
-  "notes": "Pemeriksaan kehamilan trimester 3 dan kontrol USG 4D."
-}
-Response 201 Created:
-{
-  "success": true,
-  "message": "Pendaftaran online Anda berhasil tercatat.",
-  "data": {
-    "id": "REG-839201",
-    "patientName": "Ny. Siti Aisyah",
-    "phone": "081298765432",
-    "patientType": "baru",
-    "paymentMethod": "bpjs",
-    "serviceName": "Kandungan & Kebidanan (Obgyn)",
-    "doctorName": "dr. Amanda Saraswati, Sp.OG",
-    "date": "2026-10-15",
-    "time": "09:00",
-    "status": "Menunggu",
-    "createdAt": "2026-09-21 15:45:00"
+
+DIAGRAM ALUR REGISTRASI & VERIFIKASI (ASCII FLOWCHART)
+--------------------------------------------------------------------------------
+[PASIEN / FRONTEND]                 [BACKEND API]                [SIMRS KHANZA / ADMISI]
+        |                                 |                                 |
+        |--- 1. GET /api/v1/poliklinik ->|                                 |
+        |<-- List Poli Aktif -------------|                                 |
+        |                                 |                                 |
+        |--- 2. POST /api/v1/register -->|                                 |
+        |    (Nama, Telp, Poli, Tgl, dll) |                                 |
+        |                                 |-- Cek Duplikasi (No HP + Tgl)---|
+        |                                 |-- Gen No Booking (BPYYYYMMDDxxxx)
+        |                                 |-- Simpan ke `booking_periksa`---|
+        |<-- 201 Created (No Booking) ----|   (Status: 'Belum Dibalas')     |
+        |                                 |                                 |
+        |                                 |                       [Petugas Admisi]
+        |                                 |                       Verifikasi data:
+        |                                 |                       - Cek No RM Pasien
+        |                                 |                       - Verifikasi kuota
+        |                                 |                       - Buat ke SIMRS:
+        |                                 |                         `booking_registrasi`
+        |                                 |                         / `reg_periksa`
+        |                                 |                         (No Antrian / no_reg)
+        |                                 |                                 |
+        |--- 3. Cek Status Mandiri ------>|                                 |
+        |    (POST /api/v1/check ATAU    |-- Cek `booking_periksa` --------|
+        |     POST /api/queue/check)      |-- Cross-check No HP ke `pasien`-|
+        |                                 |-- Jika ada di `booking_registrasi`
+        |                                 |   / `reg_periksa`, AUTO-SYNC:   |
+        |                                 |   status -> 'Diterima',         |
+        |                                 |   status_pendaftaran: 'Terdaftar'
+        |<-- Status & No Antrian Valid ---|                                 |
+        |                                 |                                 |
+        |=== HARI-H KUNJUNGAN ============|=================================|
+        |                                 |                                 |
+        |--- 4. GET /api/queue/my-queue ->|-- Ambil antrian aktif hari ini -|
+        |<-- Estimasi jam panggil & antrian                                 |
+        |                                 |                                 |
+        |--- 5. GET /api/queue/stream --->|-- SSE Realtime pergerakan antrian
+        |<-- Live Stream Nomor Dipanggil--|                                 |
+--------------------------------------------------------------------------------
+
+2.2. PENJELASAN TAHAPAN ALUR PENDAFTARAN:
+1. Tahap Inisialisasi & Pemilihan Poli:
+   Frontend memanggil endpoint master poliklinik untuk menampilkan poli yang 
+   buka/aktif (status = '1').
+2. Tahap Pengajuan Booking (Public):
+   Pasien mengisi formulir online tanpa kewajiban login terlebih dahulu. Backend 
+   memvalidasi kelengkapan data dan memastikan nomor telepon belum terdaftar pada 
+   tanggal periksa yang sama. Nomor booking unik diterbitkan dengan format 
+   `BP{YYYYMMDD}{4_DIGIT_RANDOM}`.
+3. Tahap Sinkronisasi & Verifikasi SIMRS (Internal RS):
+   Data booking yang tersimpan di tabel `booking_periksa` ditinjau oleh staf 
+   admisi rumah sakit. Staf mengaitkan pasien dengan nomor rekam medis (`no_rkm_medis`),
+   menerbitkan nomor antrian dokter (`no_reg`) ke tabel `booking_registrasi` atau 
+   `reg_periksa`.
+4. Tahap Pengecekan Status Pendaftaran (Self-Service):
+   Pasien dapat melacak status konfirmasi menggunakan Nomor Booking dan Nomor Telepon.
+   Sistem secara otomatis mengecek kesiapan berkas pendaftaran di SIMRS. Apabila 
+   pasien telah didaftarkan di SIMRS, sistem secara otomatis (auto-sync) mengubah 
+   status booking menjadi "Diterima" dan menampilkan nomor antrian dokter.
+5. Tahap Hari Kunjungan & Monitoring Antrian:
+   Pasien dapat melihat posisi antrian langsung di dashboard profil pasien 
+   (`my-queue`) maupun memantau display antrian secara live melalui SSE stream.
+
+
+================================================================================
+SPESIFIKASI TEKNIS DATA & KONVENSI
+================================================================================
+
+3.1. FORMAT PENOMORAN:
+- Nomor Booking (`no_booking`):
+  Format : BP + YYYYMMDD + 4 Digit Random
+  Panjang: Maksimal 20 Karakter (String)
+  Contoh : BP202609214812
+- Nomor Antrian Dokter (`no_reg`):
+  Format : 3 Digit Angka dengan Leading Zero (String)
+  Sifat  : Per-Dokter per-Poliklinik per-Hari (Dokter A dan B masing-masing mulai 001)
+  Contoh : "001", "002", "015"
+- Nomor Rawat (`no_rawat`):
+  Format : YYYY/MM/DD/xxxxxx (6 Digit Sequence)
+  Contoh : 2026/09/21/000001
+- Nomor Rekam Medis (`no_rkm_medis`):
+  Format : 6 Digit Angka String
+  Contoh : "012345"
+
+3.2. STATUS LIFECYCLE & KAMUS ISTILAH:
+1. Status Booking (`booking_periksa.status`):
+   - 'Belum Dibalas' : Pasien baru mengirim formulir, menunggu admisi RS.
+   - 'Diterima'      : Booking telah disetujui / pasien telah masuk antrian SIMRS.
+   - 'Ditolak'       : Booking ditolak (misal kuota habis, jadwal dokter tutup).
+2. Status Pendaftaran Web (`status_pendaftaran`):
+   - 'Belum Terdaftar': Belum masuk ke tabel registrasi SIMRS (`booking_registrasi`).
+   - 'Terdaftar'      : Sudah memiliki nomor antrian resmi di SIMRS.
+3. Status Pelayanan Rawat Jalan (`reg_periksa.stts`):
+   - 'Belum'          : Menunggu dipanggil di poliklinik.
+   - 'Berkas Diterima': Pasien sedang dipanggil / berkas masuk ruang dokter.
+   - 'Sudah'          : Pemeriksaan oleh dokter telah selesai.
+   - 'Batal'          : Pendaftaran dibatalkan.
+
+3.3. STRUKTUR STANDAR RESPON (RESPONSE FORMAT):
+- Standar Sukses:
+  {
+    "success": true,
+    "message": "Deskripsi pesan sukses (opsional)",
+    "data": { ... }
   }
-}
 
----
+- Standar Gagal (Error):
+  {
+    "success": false,
+    "message": "Pesan deskripsi kesalahan yang mudah dipahami",
+    "error": "Pesan detail teknis error (jika ada)"
+  }
 
-[GET] /api/v1/appointments
-Deskripsi : Mengambil antrean pendaftaran online untuk Admin CMS.
-Akses     : Terproteksi (Super Admin, Admin)
-Query Parameters:
-  - date    : string (filter tanggal: YYYY-MM-DD)
-  - status  : string ("Menunggu", "Dikonfirmasi", "Selesai", "Batal")
-  - search  : string (cari nama pasien, nomor antrean, dokter)
-  - page    : integer
-  - limit   : integer
-Response 200 OK:
+
+--------------------------------------------------------------------------------
+4.1. [GET] /api/v1/poliklinik - Master Data Poliklinik Aktif
+--------------------------------------------------------------------------------
+Deskripsi   : Mengambil daftar seluruh poliklinik aktif untuk pilihan registrasi.
+Akses       : Publik (Tanpa Autentikasi)
+Method      : GET
+URL Path    : /api/v1/poliklinik
+Header      : Accept: application/json
+
+Query Params: Tidak ada.
+
+Contoh Response (200 OK):
 {
   "success": true,
-  "message": "Daftar pendaftaran pasien berhasil diambil.",
   "data": [
     {
-      "id": "REG-839201",
-      "patientName": "Ny. Siti Aisyah",
-      "phone": "081298765432",
-      "patientType": "baru",
-      "paymentMethod": "bpjs",
-      "serviceId": "1",
-      "serviceName": "Kandungan & Kebidanan (Obgyn)",
-      "doctorId": "1",
-      "doctorName": "dr. Amanda Saraswati, Sp.OG",
-      "date": "2026-10-15",
-      "time": "09:00",
-      "notes": "Pemeriksaan kehamilan trimester 3...",
-      "status": "Menunggu",
-      "createdAt": "21 Sep 2026, 15:45"
+      "kd_poli": "ANA",
+      "nm_poli": "POLIKLINIK ANAK"
+    },
+    {
+      "kd_poli": "OBG",
+      "nm_poli": "POLIKLINIK OBGYN"
+    },
+    {
+      "kd_poli": "GIG",
+      "nm_poli": "POLIKLINIK GIGI & MULUT"
+    },
+    {
+      "kd_poli": "UMU",
+      "nm_poli": "POLIKLINIK UMUM"
     }
-  ],
-  "meta": {
-    "page": 1,
-    "limit": 20,
-    "totalItems": 1,
-    "totalPages": 1
+  ]
+}
+
+Respon Error:
+- 500 Internal Server Error:
+  {
+    "success": false,
+    "message": "Gagal memuat data poliklinik",
+    "error": "Connection timeout to v1 Database"
   }
-}
 
----
 
-[GET] /api/v1/appointments/:id
-Deskripsi : Mengambil rincian detail 1 antrean pasien berdasarkan No. Registrasi.
-Akses     : Terproteksi (Super Admin, Admin)
+--------------------------------------------------------------------------------
+[POST] /api/v1/register - Pengajuan Booking Online Pasien
+--------------------------------------------------------------------------------
+Deskripsi   : Mengirim data pendaftaran pasien online baru/lama ke antrian booking.
+Akses       : Publik (Tanpa Autentikasi)
+Method      : POST
+URL Path    : /api/v1/register
+Header      : Content-Type: application/json
+              Accept: application/json
 
----
+Parameter Body (JSON):
++-----------------+---------+----------+---------------------------------------+
+| Field           | Tipe    | Wajib?   | Keterangan                            |
++-----------------+---------+----------+---------------------------------------+
+| nama            | String  | Ya       | Nama lengkap pasien (Maks. 40 char)   |
+| alamat          | String  | Ya       | Alamat domisili pasien (Maks. 200 ch) |
+| no_telp         | String  | Ya       | No. HP / WhatsApp aktif (Maks. 40 ch) |
+| kd_poli         | String  | Ya       | Kode Poliklinik tujuan (Maks. 5 char) |
+| tanggal         | String  | Ya       | Rencana tgl periksa (YYYY-MM-DD)      |
+| email           | String  | Tidak    | Alamat email pasien (Maks. 50 char)   |
+| tambahan_pesan  | String  | Tidak    | Catatan keluhan/pesan (Maks. 400 char)|
++-----------------+---------+----------+---------------------------------------+
 
-[PATCH] /api/v1/appointments/:id/status
-Deskripsi : Mengubah status antrean (Konfirmasi, Selesai, Batal).
-Akses     : Terproteksi (Super Admin, Admin)
-Request Body:
+Aturan Validasi Bisnis:
+1. Field `nama`, `alamat`, `no_telp`, `kd_poli`, `tanggal` tidak boleh kosong.
+2. Anti-Duplikasi: Nomor telepon yang sama TIDAK BISA mendaftar dua kali pada 
+   tanggal periksa yang sama.
+3. Backend secara otomatis men-generate `no_booking` (format BP...).
+4. Waktu pendaftaran disimpan dengan penyesuaian zona waktu WIB (+7 jam).
+
+Contoh Request Body:
 {
-  "status": "Dikonfirmasi" // 'Menunggu' | 'Dikonfirmasi' | 'Selesai' | 'Batal'
+  "nama": "Siti Nurhaliza",
+  "alamat": "Jl. Melati No. 12, RT 02/04, Jakarta Barat",
+  "no_telp": "081234567890",
+  "email": "siti.nurhaliza@example.com",
+  "kd_poli": "OBG",
+  "tanggal": "2026-09-25",
+  "tambahan_pesan": "Konsultasi pemeriksaan rutin trimester 2"
 }
-Response 200 OK:
+Contoh Response Sukses (201 Created):
 {
   "success": true,
-  "message": "Status pendaftaran berhasil diperbarui.",
+  "message": "Booking berhasil dikirim",
   "data": {
-    "id": "REG-839201",
-    "status": "Dikonfirmasi"
+    "no_booking": "BP202609217823",
+    "nama": "Siti Nurhaliza",
+    "status": "Belum Dibalas"
   }
 }
 
----
+Respon Error Terkait:
+- 400 Bad Request (Field Wajib Kosong):
+  {
+    "success": false,
+    "message": "Nama, Alamat, No Telp, Kode Poli, dan Tanggal wajib diisi"
+  }
 
-[DELETE] /api/v1/appointments/:id
-Deskripsi : Menghapus riwayat pendaftaran.
-Akses     : Terproteksi (Super Admin, Admin)
+- 400 Bad Request (Duplikasi Registrasi Nomor & Tanggal Sama):
+  {
+    "success": false,
+    "message": "Nomor Telepon dan Tanggal registrasi telah terdaftar",
+    "existingData": {
+      "no_booking": "BP202609217823",
+      "nama": "Siti Nurhaliza",
+      "tanggal": "2026-09-25",
+      "poli": "POLIKLINIK OBGYN",
+      "status": "Belum Dibalas"
+    }
+  }
 
+
+--------------------------------------------------------------------------------
+[POST] /api/v1/check - Cek Status Booking & Verifikasi SIMRS
+--------------------------------------------------------------------------------
+Deskripsi   : Memeriksa status booking online pasien dan secara otomatis 
+              menyinkronkan status dengan tabel SIMRS Khanza (booking_registrasi / 
+              reg_periksa).
+Akses       : Publik (Tanpa Autentikasi)
+Method      : POST
+URL Path    : /api/v1/check
+Header      : Content-Type: application/json
+
+Parameter Body (JSON):
++-----------------+---------+----------+---------------------------------------+
+| Field           | Tipe    | Wajib?   | Keterangan                            |
++-----------------+---------+----------+---------------------------------------+
+| no_booking      | String  | Ya       | Kode booking pendaftaran (mis. BP...) |
+| no_telp         | String  | Ya       | Nomor telepon yang digunakan booking  |
++-----------------+---------+----------+---------------------------------------+
+
+Logika Internal Backend:
+1. Mencari data di `booking_periksa` berdasarkan `no_booking` dan `no_telp`.
+2. Mencari data pasien di tabel `pasien` SIMRS berdasarkan nomor telepon 
+   (mendukung variasi awalan 0, tanpa 0, dan +62).
+3. Mengecek tabel `booking_registrasi` untuk tanggal periksa terkait.
+4. Jika ditemukan dan berstatus 'Terdaftar', sistem otomatis mengubah status 
+   booking di tabel `booking_periksa` menjadi 'Diterima'.
+5. Mengembalikan data lengkap beserta status pendaftaran dan nama poliklinik.
+
+Contoh Request Body:
+{
+  "no_booking": "BP202609217823",
+  "no_telp": "081234567890"
+}
+
+Contoh Response Sukses (200 OK):
+{
+  "success": true,
+  "data": {
+    "no_booking": "BP202609217823",
+    "tanggal": "2026-09-25",
+    "nama": "Siti Nurhaliza",
+    "alamat": "Jl. Melati No. 12, RT 02/04, Jakarta Barat",
+    "no_telp": "081234567890",
+    "email": "siti.nurhaliza@example.com",
+    "kd_poli": "OBG",
+    "tambahan_pesan": "Konsultasi pemeriksaan rutin trimester 2",
+    "status": "Diterima",
+    "tanggal_booking": "2026-09-21T09:30:00.000Z",
+    "status_pendaftaran": "Terdaftar",
+    "nm_poli": "POLIKLINIK OBGYN"
+  }
+}
+
+Respon Error Terkait:
+- 400 Bad Request:
+  {
+    "success": false,
+    "message": "Nomor Booking dan Nomor Telepon wajib diisi"
+  }
+- 404 Not Found:
+  {
+    "success": false,
+    "message": "Data booking tidak ditemukan. Pastikan Kode Booking dan No. Telepon sesuai."
+  }
+
+
+--------------------------------------------------------------------------------
+ [POST] /api/queue/check - Cek Booking & Info Antrian Publik
+--------------------------------------------------------------------------------
+Deskripsi   : Pengecekan booking yang langsung terintegrasi dengan nomor antrian 
+              pelayanan hari kunjungan (Public Queue Check).
+Akses       : Publik (Tanpa Autentikasi)
+Method      : POST
+URL Path    : /api/queue/check
+Header      : Content-Type: application/json
+
+Parameter Body (JSON):
++-----------------+---------+----------+---------------------------------------+
+| Field           | Tipe    | Wajib?   | Keterangan                            |
++-----------------+---------+----------+---------------------------------------+
+| no_booking      | String  | Ya       | Nomor booking online (BP...)          |
+| no_telp         | String  | Ya       | Nomor telepon pasien saat pendaftaran |
++-----------------+---------+----------+---------------------------------------+
+
+Prioritas Penentuan Nomor Antrian:
+1. `booking_registrasi.no_reg` (dari booking online SIMRS)
+2. `reg_periksa.no_reg` (dari registrasi pemeriksaan fisik)
+3. Default '-' jika belum diterbitkan admisi.
+
+Contoh Request Body:
+{
+  "no_booking": "BP202609217823",
+  "no_telp": "081234567890"
+}
+
+Contoh Response Sukses (200 OK):
+{
+  "success": true,
+  "data": {
+    "no_booking": "BP202609217823",
+    "nama_pasien": "Siti Nurhaliza",
+    "nm_poli": "POLIKLINIK OBGYN",
+    "tanggal": "2026-09-25",
+    "no_antrian": "004",
+    "status": "Menunggu Dipanggil"
+  }
+}
+
+Respon Error Terkait:
+- 404 Not Found:
+  {
+    "success": false,
+    "message": "Data booking tidak ditemukan."
+  }
+
+
+--------------------------------------------------------------------------------
+ [GET] /api/appointments/history - Riwayat Booking Akun Pasien
+--------------------------------------------------------------------------------
+Deskripsi   : Mengambil daftar seluruh riwayat pendaftaran/booking medis milik 
+              akun pasien yang sedang aktif, dilengkapi data dokter dan nomor 
+              antrian pendaftaran.
+Akses       : Fleksibel / Publik (Berdasarkan Query Parameter `userId`)
+Method      : GET
+URL Path    : /api/appointments/history
+Header      : Accept: application/json
+
+Query Parameters:
++-----------------+---------+----------+---------------------------------------+
+| Parameter       | Tipe    | Wajib?   | Keterangan                            |
++-----------------+---------+----------+---------------------------------------+
+| userId          | UUID    | Ya       | ID user terdaftar di tabel `users`    |
++-----------------+---------+----------+---------------------------------------+
+
+Logika Perkaya Data (Data Enrichment):
+- Backend mencocokkan kontak telepon & email pengguna dengan tabel `booking_periksa`.
+- Melakukan pencarian pasien rekam medis di SIMRS (`pasien.no_rkm_medis`).
+- Mengambil nama dokter (`Dokter.nm_dokter`), nomor antrian (`no_antrian`), 
+  nama poliklinik (`Poliklinik.nm_poli`), serta status pendaftaran ter-sinkron.
+
+Contoh cURL:
+Contoh Response Sukses (200 OK):
+{
+  "success": true,
+  "data": [
+    {
+      "no_booking": "BP202609217823",
+      "tanggal": "2026-09-25",
+      "nama": "Siti Nurhaliza",
+      "alamat": "Jl. Melati No. 12, RT 02/04, Jakarta Barat",
+      "no_telp": "081234567890",
+      "email": "siti.nurhaliza@example.com",
+      "kd_poli": "OBG",
+      "tambahan_pesan": "Konsultasi pemeriksaan rutin trimester 2",
+      "status": "Diterima",
+      "tanggal_booking": "2026-09-21T09:30:00.000Z",
+      "status_pendaftaran": "Terdaftar",
+      "no_rkm_medis": "029182",
+      "kd_dokter": "DR002",
+      "nm_dokter": "dr. Ratna Sp.OG",
+      "nm_poli": "POLIKLINIK OBGYN",
+      "no_antrian": "004"
+    }
+  ]
+}
+
+Respon Error Terkait:
+- 400 Bad Request:
+  {
+    "success": false,
+    "message": "User ID wajib diisi"
+  }
+- 404 Not Found:
+  {
+    "success": false,
+    "message": "User tidak ditemukan"
+  }
+
+
+--------------------------------------------------------------------------------
+ [GET] /api/queue/my-queue - Antrian Aktif Pasien (Protected)
+--------------------------------------------------------------------------------
+Deskripsi   : Mengambil status antrian langsung (live) pada hari periksa untuk 
+              pasien yang sedang login.
+Akses       : Terproteksi (Wajib Authorization Bearer Token)
+Method      : GET
+URL Path    : /api/queue/my-queue
+Header      : Authorization: Bearer <JWT_TOKEN>
+              Accept: application/json
+
+Logika Internal:
+- Mendeteksi pasien berdasarkan nomor HP user login.
+- Mencari pemeriksaan aktif hari ini di `reg_periksa` (stts != 'Batal').
+- Jika belum terdaftar hari ini, memeriksa booking online mendatang di 
+  `booking_registrasi` (status = 'Terdaftar').
+- Menghitung estimasi jam panggil berdasarkan jumlah pasien di depan (`stts = 'Belum'`).
+
+Contoh Response Sukses (Pasien Memiliki Antrian Aktif):
+{
+  "success": true,
+  "data": {
+    "has_active_queue": true,
+    "booking_code": "BP202609217823",
+    "queue_number": "004",
+    "estimated_call_time": "09:40",
+    "poli_name": "POLIKLINIK OBGYN",
+    "date": "2026-09-25",
+    "status_message": "Menunggu Dipanggil"
+  }
+}
+
+Contoh Response (Pasien Belum Memiliki Antrian):
+{
+  "success": true,
+  "data": {
+    "has_active_queue": false,
+    "message": "Belum ada antrian aktif hari ini."
+  }
+}
+
+Respon Error Terkait:
+- 401 Unauthorized (Token tidak disertakan atau kedaluwarsa):
+  {
+    "success": false,
+    "message": "Akses ditolak. Token tidak valid atau tidak disertakan."
+  }
+
+
+--------------------------------------------------------------------------------
+ [POST] /api/v1/update-status - Pembaruan Status Booking (Admin/Admisi)
+--------------------------------------------------------------------------------
+Deskripsi   : Mengubah status booking pendaftaran pasien oleh staf admin RSIA.
+Akses       : Internal / Admin
+Method      : POST
+URL Path    : /api/v1/update-status
+Header      : Content-Type: application/json
+
+Parameter Body (JSON):
++-----------------+---------+----------+---------------------------------------+
+| Field           | Tipe    | Wajib?   | Keterangan                            |
++-----------------+---------+----------+---------------------------------------+
+| no_booking      | String  | Ya       | Nomor booking yang akan diubah        |
+| status          | String  | Ya       | 'Diterima' | 'Ditolak' |'Belum Dibalas'|
++-----------------+---------+----------+---------------------------------------+
+
+Contoh Request Body:
+{
+  "no_booking": "BP202609217823",
+  "status": "Diterima"
+}
+
+Contoh Response Sukses (200 OK):
+{
+  "success": true,
+  "message": "Status berhasil diubah menjadi Diterima",
+  "data": {
+    "no_booking": "BP202609217823",
+    "status": "Diterima"
+  }
+}
+
+Respon Error Terkait:
+- 400 Bad Request:
+  {
+    "success": false,
+    "message": "No Booking dan Status harus diisi"
+  }
+- 404 Not Found:
+  {
+    "success": false,
+    "message": "Booking tidak ditemukan"
+  }
+
+
+--------------------------------------------------------------------------------
+[GET] /api/queue/stream - Streaming Antrian Real-Time (SSE)
+--------------------------------------------------------------------------------
+Deskripsi   : Server-Sent Events (SSE) stream untuk menampilkan nomor antrian 
+              yang sedang dilayani dan sisa antrian di tiap poliklinik secara live.
+Akses       : Publik (Tanpa Autentikasi)
+Method      : GET
+URL Path    : /api/queue/stream
+Header      : Accept: text/event-stream
+              Cache-Control: no-cache
+              Connection: keep-alive
+
+Mekanisme Real-Time:
+- Mengirim initial snapshot saat koneksi dibuka.
+- Mendengarkan event internal `queue-updated` ketika pendaftaran baru terjadi.
+- Polling otomatis interval 5 detik sebagai sinkronisasi cadangan dari SIMRS desktop.
+- Mengirim heartbeat ping `: keep-alive\n\n` tiap 20 detik.
+- Kompresi HTTP (gzip/brotli) otomatis dikecualikan untuk menjaga kelancaran stream.
+
+Contoh Format Pesan Data SSE:
+data: {"success":true,"data":[{"poli_id":"OBG","poli_name":"POLIKLINIK OBGYN","current_number":"003","total_queue":12,"remaining_queue":4,"status":"OPEN","estimated_wait_time":40},{"poli_id":"ANA","poli_name":"POLIKLINIK ANAK","current_number":"008","total_queue":15,"remaining_queue":2,"status":"OPEN","estimated_wait_time":20}]}
+
+
+================================================================================
+ TABEL DATABASE SIMRS TERKAIT & PEMETAAN
+================================================================================
+
+1. TABEL: `booking_periksa` (Model: Booking.js)
+   - Kolom:
+     * `no_booking`     : varchar(20) [PRIMARY KEY] - Nomor kode booking (BP...)
+     * `tanggal`        : date - Tanggal rencana periksa
+     * `nama`           : varchar(40) - Nama pasien pendaftar
+     * `alamat`         : varchar(200) - Alamat pasien
+     * `no_telp`        : varchar(40) - Nomor telepon / WA pasien
+     * `email`          : varchar(50) - Email pasien
+     * `kd_poli`        : varchar(5) - Foreign Key ke tabel poliklinik
+     * `tambahan_pesan` : varchar(400) - Keluhan / pesan tambahan
+     * `status`         : enum('Diterima', 'Ditolak', 'Belum Dibalas')
+     * `tanggal_booking`: datetime - Waktu saat pasien melakukan submit form (WIB)
+
+2. TABEL: `booking_registrasi` (Model: BookingRegistrasi.js)
+   - Kolom:
+     * `tanggal_booking`: date - Tanggal booking dibuat
+     * `jam_booking`    : time - Jam booking dibuat
+     * `no_rkm_medis`   : varchar(15) [PRIMARY KEY] - Nomor Rekam Medis Pasien
+     * `tanggal_periksa`: date [PRIMARY KEY] - Tanggal rencana berobat
+     * `kd_dokter`      : varchar(20) - Kode dokter yang bertugas
+     * `kd_poli`        : varchar(5) - Kode poliklinik tujuan
+     * `no_reg`         : varchar(8) - Nomor urut antrian resmi dokter
+     * `kd_pj`          : varchar(3) - Jenis bayar / penanggung jawab
+     * `status`         : enum('Belum', 'Terdaftar', 'Batal')
+
+3. TABEL: `reg_periksa` (Model: RegPeriksa.js)
+   - Kolom:
+     * `no_reg`         : varchar(8) - Nomor antrian periksa
+     * `no_rawat`       : varchar(17) [PRIMARY KEY] - Nomor registrasi rawat (YYYY/MM/DD/xxxxxx)
+     * `tgl_registrasi` : date - Tanggal berobat
+     * `jam_reg`        : time - Jam kedatangan
+     * `kd_dokter`      : varchar(20) - Dokter pemeriksa
+     * `no_rkm_medis`   : varchar(15) - Nomor rekam medis
+     * `kd_poli`        : varchar(5) - Poliklinik tujuan
+     * `stts`           : enum('Belum','Sudah','Batal','Berkas Diterima','Dirujuk','Meninggal','Dirawat','Pulang Paksa')
+     * `status_lanjut`  : enum('Ralan', 'Ranap') - Standar: Ralan (Rawat Jalan)
+     * `status_bayar`   : enum('Sudah Bayar', 'Belum Bayar')
+
+4. TABEL: `pasien` (Model: Pasien.js)
+   - Kolom:
+     * `no_rkm_medis`   : varchar(15) [PRIMARY KEY]
+     * `nm_pasien`      : varchar(40)
+     * `no_ktp`         : varchar(20)
+     * `no_tlp`         : varchar(40)
+     * `tgl_lahir`      : date
+     * `alamat`         : varchar(200)
+
+5. TABEL: `poliklinik` (Model: Poliklinik.js)
+   - Kolom:
+     * `kd_poli`        : varchar(5) [PRIMARY KEY]
+     * `nm_poli`        : varchar(50)
+     * `status`         : enum('0', '1') - '1' = Aktif melayani
+
+
+================================================================================
+KEAMANAN, RATE LIMITING & PENANGANAN ERROR
+================================================================================
+
+1. Keamanan & Header:
+   - Helmet diaktifkan untuk proteksi XSS, Clickjacking, dan MIME sniffing.
+   - CORS Whitelist:
+     * https://cms.sayangibu.co.id
+     * https://sayangibu.co.id
+     * https://api-web.sayangibu.co.id
+   - Tracking Header: Setiap request secara otomatis disematkan header unik 
+     `X-Request-ID` (UUID v4) untuk penelusuran audit log.
+
+2. Rate Limiting:
+   - Seluruh endpoint `/api/*` dilindungi dengan Rate Limiter:
+     Maksimal batas request terdistribusi per-IP dalam window waktu tertentu.
+   - Response jika melebihi kuota:
+     HTTP Status : 429 Too Many Requests
+     Payload     :
+     {
+       "success": false,
+       "error": "Terlalu banyak request, coba lagi dalam 10 menit",
+       "retryAfter": 600
+     }
+
+3. Daftar Kode Status HTTP yang Digunakan:
+   - 200 OK          : Request berhasil diproses.
+   - 201 Created     : Pendaftaran/booking baru berhasil dibuat.
+   - 400 Bad Request : Data tidak lengkap, format keliru, atau registrasi ganda.
+   - 401 Unauthorized: Token otorisasi tidak ada atau tidak valid.
+   - 404 Not Found   : Data poliklinik, booking, atau antrian tidak ditemukan.
+   - 429 Too Many Req: Request melebihi batas rate limit sistem.
+   - 500 Server Error: Kesalahan server internal atau kendala koneksi SIMRS.
 
 --------------------------------------------------------------------------------
 3.7 MODUL 7: LOWONGAN KERJA / KARIR (VACANCIES)

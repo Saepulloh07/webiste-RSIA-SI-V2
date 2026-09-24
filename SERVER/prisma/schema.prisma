@@ -1,0 +1,302 @@
+// =============================================================================
+// PRIMARY APPLICATION DATABASE
+// Owned and migrated by this backend. Provider "mysql" is used for MariaDB
+// compatibility, per project instructions.
+//
+// Source of truth: API_DOCUMENTATION.txt, Section 2 (Database Schema) +
+// per-endpoint request/response bodies in Section 3.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// Tabel 1: users — Akun Pengelola CMS
+// -----------------------------------------------------------------------------
+enum UserRole {
+  SUPER_ADMIN @map("Super Admin")
+  ADMIN       @map("Admin")
+  EDITOR      @map("Editor")
+}
+
+model User {
+  id           BigInt    @id @default(autoincrement())
+  name         String    @db.VarChar(100)
+  email        String    @unique @db.VarChar(150)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  role         UserRole  @default(EDITOR)
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+// -----------------------------------------------------------------------------
+// Tabel 2: doctors — Direktori Tenaga Medis & Dokter Spesialis
+// -----------------------------------------------------------------------------
+enum DoctorStatus {
+  AKTIF     @map("Aktif")
+  CUTI      @map("Cuti")
+  NONAKTIF  @map("Nonaktif")
+}
+
+model Doctor {
+  id           BigInt       @id @default(autoincrement())
+  name         String       @db.VarChar(150)
+  slug         String       @unique @db.VarChar(180)
+  specialty    String       @db.VarChar(100)
+  subspecialty String?      @db.VarChar(150)
+  status       DoctorStatus @default(AKTIF)
+  schedule     String       @db.VarChar(255)
+  sipNumber    String?      @map("sip_number") @db.VarChar(100)
+  poliklinik   String?      @db.VarChar(100)
+  imageUrl     String?      @map("image_url") @db.Text
+  bio          String?      @db.Text
+  education    Json?
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  @@index([specialty])
+  @@index([status])
+  @@map("doctors")
+}
+
+// -----------------------------------------------------------------------------
+// Tabel 3: services — Layanan Unggulan, Poliklinik & Fasilitas
+// -----------------------------------------------------------------------------
+enum ServiceStatus {
+  AKTIF    @map("Aktif")
+  NONAKTIF @map("Nonaktif")
+}
+
+model Service {
+  id                BigInt        @id @default(autoincrement())
+  name              String        @db.VarChar(150)
+  slug              String        @unique @db.VarChar(180)
+  category          String        @db.VarChar(100)
+  status            ServiceStatus @default(AKTIF)
+  description       String        @db.Text
+  imageUrl          String?       @map("image_url") @db.Text
+  facilities        Json?
+  operationalHours  String?       @map("operational_hours") @db.VarChar(150)
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@index([status])
+  @@map("services")
+}
+
+// -----------------------------------------------------------------------------
+// Tabel 4: articles — Publikasi Berita & Edukasi Kesehatan
+// -----------------------------------------------------------------------------
+enum ArticleStatus {
+  PUBLISHED @map("Published")
+  DRAFT     @map("Draft")
+}
+
+model Article {
+  id        BigInt        @id @default(autoincrement())
+  title     String        @db.VarChar(255)
+  slug      String        @unique @db.VarChar(255)
+  category  String        @db.VarChar(100)
+  date      String        @db.VarChar(50)
+  status    ArticleStatus @default(DRAFT)
+  author    String        @default("Tim Medis RSIA Sayang Ibu") @db.VarChar(100)
+  content   String        @db.LongText
+  imageUrl  String?       @map("image_url") @db.Text
+  tags      Json?
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@index([status])
+  @@map("articles")
+}
+
+// -----------------------------------------------------------------------------
+// Tabel 5: ad_campaigns — Promo Layanan & Landing Page Microsite
+// -----------------------------------------------------------------------------
+enum AdCampaignStatus {
+  AKTIF   @map("Aktif")
+  BERAKHIR @map("Berakhir")
+  DRAFT   @map("Draft")
+}
+
+model AdCampaign {
+  id             BigInt           @id @default(autoincrement())
+  title          String           @db.VarChar(255)
+  slug           String           @unique @db.VarChar(255)
+  badge          String           @default("Promo Spesial") @db.VarChar(50)
+  price          String?          @db.VarChar(50)
+  originalPrice  String?          @map("original_price") @db.VarChar(50)
+  startDate      DateTime         @map("start_date") @db.Date
+  endDate        DateTime         @map("end_date") @db.Date
+  status         AdCampaignStatus @default(DRAFT)
+  content        String           @db.Text
+  imageUrl       String?          @map("image_url") @db.Text
+  highlights     Json?
+  targetKeywords String?          @map("target_keywords") @db.Text
+  contactWa      String?          @map("contact_wa") @db.VarChar(50)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("ad_campaigns")
+}
+
+// -----------------------------------------------------------------------------
+// Tabel 6: appointments — retained as documented for completeness/reporting.
+// [UNRESOLVED / per user decision]: live public booking flow is implemented
+// against SIMRS (see prisma/simrs/schema.prisma: BookingPeriksa) instead of
+// this table, since the documentation's Section 3.6 endpoints operate on
+// SIMRS tables, not this one. This model is kept because Section 2 explicitly
+// defines it, but no endpoint in Section 3 is documented to read/write it
+// directly. Left unwired from any controller to avoid inventing undocumented
+// endpoints. Flag if you want CMS-facing CRUD added on top of it.
+// -----------------------------------------------------------------------------
+enum AppointmentPatientType {
+  BARU @map("baru")
+  LAMA @map("lama")
+}
+
+enum AppointmentPaymentMethod {
+  UMUM     @map("umum")
+  BPJS     @map("bpjs")
+  ASURANSI @map("asuransi")
+}
+
+enum AppointmentStatus {
+  MENUNGGU    @map("Menunggu")
+  DIKONFIRMASI @map("Dikonfirmasi")
+  SELESAI     @map("Selesai")
+  BATAL       @map("Batal")
+}
+
+model Appointment {
+  id            String                    @id @db.VarChar(50)
+  patientName   String                    @map("patient_name") @db.VarChar(150)
+  phone         String                    @db.VarChar(30)
+  patientType   AppointmentPatientType    @map("patient_type")
+  paymentMethod AppointmentPaymentMethod  @map("payment_method")
+  serviceId     String                    @map("service_id") @db.VarChar(100)
+  serviceName   String?                   @map("service_name") @db.VarChar(150)
+  doctorId      String                    @map("doctor_id") @db.VarChar(100)
+  doctorName    String?                   @map("doctor_name") @db.VarChar(150)
+  date          DateTime                  @db.Date
+  time          String?                   @db.VarChar(20)
+  notes         String?                   @db.Text
+  status        AppointmentStatus         @default(MENUNGGU)
+  createdAt     DateTime                  @default(now()) @map("created_at")
+  updatedAt     DateTime                  @updatedAt @map("updated_at")
+
+  @@map("appointments")
+}
+
+// -----------------------------------------------------------------------------
+// Tabel 7: job_vacancies — Lowongan Kerja / Karir
+// -----------------------------------------------------------------------------
+enum VacancyType {
+  FULL_TIME @map("Full Time")
+  PART_TIME @map("Part Time")
+  KONTRAK   @map("Kontrak")
+}
+
+enum VacancyStatus {
+  PUBLISHED @map("Published")
+  DRAFT     @map("Draft")
+}
+
+model JobVacancy {
+  id            BigInt        @id @default(autoincrement())
+  title         String        @db.VarChar(150)
+  slug          String        @unique @db.VarChar(180)
+  department    String        @db.VarChar(100)
+  type          VacancyType   @default(FULL_TIME)
+  location      String        @default("Batusangkar") @db.VarChar(100)
+  experience    String?       @db.VarChar(100)
+  deadline      DateTime?     @db.Date
+  status        VacancyStatus @default(DRAFT)
+  description   String        @db.Text
+  requirements  String        @db.Text
+  contactEmail  String?       @map("contact_email") @db.VarChar(100)
+  contactWa     String?       @map("contact_wa") @db.VarChar(30)
+  date          String?       @db.VarChar(50)
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  @@index([department])
+  @@index([status])
+  @@map("job_vacancies")
+}
+
+// -----------------------------------------------------------------------------
+// Tabel 8: media — Media Library
+// -----------------------------------------------------------------------------
+enum MediaType {
+  IMAGE          @map("image")
+  VIDEO          @map("video")
+  DOCUMENT       @map("document")
+  SLIDESHOW      @map("slideshow")
+  WEBSITE_IMAGE  @map("website_image")
+}
+
+model Media {
+  id          BigInt    @id @default(autoincrement())
+  name        String    @db.VarChar(255)
+  type        MediaType @default(IMAGE)
+  url         String    @db.Text
+  size        String    @db.VarChar(50)
+  date        String    @db.VarChar(50)
+  description String?   @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([type])
+  @@map("media")
+}
+
+// -----------------------------------------------------------------------------
+// Tabel 9: hospital_settings — Profil & Informasi Resmi Rumah Sakit (singleton)
+// -----------------------------------------------------------------------------
+model HospitalSetting {
+  id               Int      @id @default(1)
+  hospitalName     String   @default("RSIA Sayang Ibu") @map("hospital_name") @db.VarChar(150)
+  slogan           String?  @db.VarChar(255)
+  aboutText        String?  @map("about_text") @db.Text
+  operationalHours String?  @map("operational_hours") @db.VarChar(150)
+  logoUrl          String?  @map("logo_url") @db.Text
+  phoneCs          String?  @map("phone_cs") @db.VarChar(50)
+  phoneEmergency   String?  @map("phone_emergency") @db.VarChar(50)
+  whatsapp         String?  @db.VarChar(50)
+  email            String?  @db.VarChar(100)
+  address          String?  @db.Text
+  mapsUrl          String?  @map("maps_url") @db.Text
+  mapsEmbed        String?  @map("maps_embed") @db.Text
+  instagram        String?  @db.VarChar(255)
+  facebook         String?  @db.VarChar(255)
+  youtube          String?  @db.VarChar(255)
+  tiktok           String?  @db.VarChar(255)
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@map("hospital_settings")
+}
+
+// -----------------------------------------------------------------------------
+// Tabel 10: registration_settings — Pengaturan Form Pendaftaran Online (singleton)
+// -----------------------------------------------------------------------------
+model RegistrationSetting {
+  id            Int      @id @default(1)
+  isOpen        Boolean  @default(true) @map("is_open")
+  maxDailyQuota Int      @default(50) @map("max_daily_quota")
+  noticeMessage String?  @map("notice_message") @db.Text
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@map("registration_settings")
+}

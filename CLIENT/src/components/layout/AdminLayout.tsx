@@ -3,11 +3,12 @@ import { Navigate, Outlet, Link } from "react-router-dom";
 import { Menu, ExternalLink, ShieldCheck } from "lucide-react";
 import { AdminSidebar } from "./AdminSidebar";
 import { Button } from "@/components/ui/button";
+import { normalizeRole } from "@/app/api";
 
 export function AdminLayout() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const isLoggedIn = localStorage.getItem("isAdminLoggedIn") === "true";
-  const role = localStorage.getItem("adminRole") || "Editor";
+  const role = normalizeRole(localStorage.getItem("adminRole"));
 
   if (!isLoggedIn) {
     return <Navigate to="/admin/login" replace />;

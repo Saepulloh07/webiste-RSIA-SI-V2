@@ -1,17 +1,41 @@
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, Calendar, User, Tag, ArrowRight, Sparkles, BookOpen, Share2 } from "lucide-react";
-import { useStore } from "@/store";
+import { useStore, Article } from "@/store";
 import { MediaWatermark } from "@/components/common/MediaWatermark";
 import { Badge } from "@/components/ui/badge";
 import { SEOHead } from "@/components/common/SEOHead";
-
 import { Button } from "@/components/ui/button";
+import { api } from "@/app/api";
 
 export default function ArticleDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { articles, settings } = useStore();
+  const [fetchedArticle, setFetchedArticle] = useState<Article | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const article = articles.find(a => a.slug === slug || a.id === slug);
+  const article = articles.find(a => a.slug === slug || a.id === slug) || fetchedArticle;
+
+  useEffect(() => {
+    if (!articles.find(a => a.slug === slug || a.id === slug) && slug) {
+      setIsLoading(true);
+      api.articles.getOne(slug)
+        .then((res) => {
+          if (res?.data) setFetchedArticle(res.data);
+        })
+        .catch(() => {})
+        .finally(() => setIsLoading(false));
+    }
+  }, [articles, slug]);
+
+  if (isLoading && !article) {
+    return (
+      <div className="container mx-auto px-4 py-32 text-center min-h-[60vh] flex flex-col items-center justify-center">
+        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-slate-500 text-sm">Memuat artikel edukasi medis...</p>
+      </div>
+    );
+  }
 
   if (!article) {
     return (

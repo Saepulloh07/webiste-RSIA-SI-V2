@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Search, Calendar, ChevronRight, Sparkles, BookOpen } from "lucide-react";
@@ -8,9 +8,13 @@ import { MediaWatermark } from "@/components/common/MediaWatermark";
 import { SEOHead } from "@/components/common/SEOHead";
 
 export default function Articles() {
-  const { articles, settings } = useStore();
+  const { articles, settings, fetchArticles } = useStore();
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Semua Kategori");
+
+  useEffect(() => {
+    fetchArticles();
+  }, [fetchArticles]);
 
   // Only published articles for public view
   const publishedArticles = articles.filter(a => a.status === "Published");

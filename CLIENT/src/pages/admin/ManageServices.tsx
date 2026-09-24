@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,15 +8,20 @@ import { Modal } from "@/components/ui/modal";
 import { Search, Plus, Edit, Trash2, Activity, Clock, CheckCircle2, Building2, Layers } from "lucide-react";
 import { useStore, Service } from "@/store";
 import { ImageUpload } from "@/components/ui/image-upload";
+import { api } from "@/app/api";
 
 export default function ManageServices() {
   const [search, setSearch] = useState("");
-  const { services, setServices } = useStore();
+  const { services, setServices, fetchServices } = useStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [formData, setFormData] = useState<Partial<Service>>({});
-
   const [facilitiesText, setFacilitiesText] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    fetchServices();
+  }, [fetchServices]);
 
   const handleOpenModal = (service?: Service) => {
     if (service) {
@@ -38,28 +43,61 @@ export default function ManageServices() {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setIsSaving(true);
     const parsedFacilities = facilitiesText
       .split("\n")
       .map(line => line.trim())
       .filter(line => line.length > 0);
 
-    const updatedData: Partial<Service> = {
-      ...formData,
-      facilities: parsedFacilities
+    const payload = {
+      name: formData.name?.trim() || "",
+      category: formData.category || "Poliklinik",
+      status: formData.status || "Aktif",
+      description: formData.description?.trim() || "",
+      operationalHours: formData.operationalHours?.trim() || undefined,
+      image: formData.image?.trim() || undefined,
+      facilities: parsedFacilities.length > 0 ? parsedFacilities : undefined,
     };
 
     if (editingService) {
-      setServices(services.map((s) => (s.id === editingService.id ? { ...s, ...updatedData } as Service : s)));
+      try {
+        const res = await api.services.update(editingService.id, payload);
+        if (res?.data) {
+          await fetchServices();
+        } else {
+          setServices(services.map((s) => (s.id === editingService.id ? { ...s, ...payload } as Service : s)));
+        }
+      } catch (err) {
+        console.warn("API update service failed, updating store locally:", err);
+        setServices(services.map((s) => (s.id === editingService.id ? { ...s, ...payload } as Service : s)));
+      }
     } else {
-      setServices([{ ...updatedData, id: Date.now().toString() } as Service, ...services]);
+      try {
+        const res = await api.services.create(payload);
+        if (res?.data) {
+          await fetchServices();
+        } else {
+          setServices([{ ...payload, id: Date.now().toString() } as Service, ...services]);
+        }
+      } catch (err) {
+        console.warn("API create service failed, adding to store locally:", err);
+        setServices([{ ...payload, id: Date.now().toString() } as Service, ...services]);
+      }
     }
+    setIsSaving(false);
     setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Apakah Anda yakin ingin menghapus layanan ini?")) {
-      setServices(services.filter((s) => s.id !== id));
+      try {
+        await api.services.delete(id);
+        await fetchServices();
+      } catch (err) {
+        console.warn("API delete service failed, deleting locally:", err);
+        setServices(services.filter((s) => s.id !== id));
+      }
     }
   };
 

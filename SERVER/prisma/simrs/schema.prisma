@@ -1,0 +1,120 @@
+// =============================================================================
+// SIMRS KHANZA DATABASE — SEPARATE SERVER, NOT OWNED BY THIS BACKEND
+// =============================================================================
+// Per explicit decision: this is a different database server than our CMS DB.
+// RULES:
+//   1. NEVER run `prisma migrate` against SIMRS_DATABASE_URL. This schema is
+//      meant to be kept in sync via `npm run simrs:pull` (prisma db pull),
+//      which introspects the hospital's existing tables — we do not create
+//      or alter SIMRS's schema.
+//   2. Of the 5 tables below, only `booking_periksa` is one our backend is
+//      documented to write to (new online bookings + status updates from
+//      admin). The other four (booking_registrasi, reg_periksa, pasien,
+//      poliklinik, dokter) are populated/owned by the SIMRS Khanza desktop
+//      application at the hospital — our repositories only ever call
+//      find/findMany against them. This is enforced at the repository layer
+//      (see src/simrs/repositories/*), not by the database driver itself,
+//      since MySQL/MariaDB grants are an infra concern outside this codebase
+//      — [UNRESOLVED]: ask hospital's DBA to grant this app's SIMRS_DATABASE_URL
+//      user INSERT/UPDATE only on booking_periksa and SELECT-only on the rest.
+//   3. Column names/types below are taken verbatim from documentation
+//      Section "TABEL DATABASE SIMRS TERKAIT & PEMETAAN". The `dokter` table
+//      is referenced (`Dokter.nm_dokter`, `kd_dokter`) but its full column
+//      list is never given — modeled here with only the two documented
+//      fields. [UNRESOLVED]: replace with `prisma db pull` output once you
+//      have real SIMRS DB access, since Khanza's actual `dokter` table has
+//      more columns than the two documented here.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/@sayangibu/simrs-client"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("SIMRS_DATABASE_URL")
+}
+
+/// Bridge table: online bookings submitted via our website.
+/// READ + WRITE (insert on /api/v1/register, update on /api/v1/update-status).
+model BookingPeriksa {
+  noBooking      String   @id @map("no_booking") @db.VarChar(20)
+  tanggal        DateTime @db.Date
+  nama           String   @db.VarChar(40)
+  alamat         String   @db.VarChar(200)
+  noTelp         String   @map("no_telp") @db.VarChar(40)
+  email          String?  @db.VarChar(50)
+  kdPoli         String   @map("kd_poli") @db.VarChar(5)
+  tambahanPesan  String?  @map("tambahan_pesan") @db.VarChar(400)
+  status         String   @default("Belum Dibalas") @db.VarChar(20) // enum('Diterima','Ditolak','Belum Dibalas')
+  tanggalBooking DateTime @map("tanggal_booking")
+
+  @@index([noTelp, tanggal])
+  @@map("booking_periksa")
+}
+
+/// SIMRS-owned. READ ONLY. Composite PK (no_rkm_medis, tanggal_periksa).
+model BookingRegistrasi {
+  tanggalBooking DateTime @map("tanggal_booking") @db.Date
+  jamBooking     DateTime @map("jam_booking") @db.Time()
+  noRkmMedis     String   @map("no_rkm_medis") @db.VarChar(15)
+  tanggalPeriksa DateTime @map("tanggal_periksa") @db.Date
+  kdDokter       String   @map("kd_dokter") @db.VarChar(20)
+  kdPoli         String   @map("kd_poli") @db.VarChar(5)
+  noReg          String?  @map("no_reg") @db.VarChar(8)
+  kdPj           String?  @map("kd_pj") @db.VarChar(3)
+  status         String   @default("Belum") @db.VarChar(20) // enum('Belum','Terdaftar','Batal')
+
+  @@id([noRkmMedis, tanggalPeriksa])
+  @@map("booking_registrasi")
+}
+
+/// SIMRS-owned. READ ONLY.
+model RegPeriksa {
+  noReg         String?  @map("no_reg") @db.VarChar(8)
+  noRawat       String   @id @map("no_rawat") @db.VarChar(17)
+  tglRegistrasi DateTime @map("tgl_registrasi") @db.Date
+  jamReg        DateTime @map("jam_reg") @db.Time()
+  kdDokter      String   @map("kd_dokter") @db.VarChar(20)
+  noRkmMedis    String   @map("no_rkm_medis") @db.VarChar(15)
+  kdPoli        String   @map("kd_poli") @db.VarChar(5)
+  stts          String   @default("Belum") @db.VarChar(20)
+  statusLanjut  String   @default("Ralan") @map("status_lanjut") @db.VarChar(10)
+  statusBayar   String   @default("Belum Bayar") @map("status_bayar") @db.VarChar(20)
+
+  @@index([noRkmMedis, tglRegistrasi])
+  @@map("reg_periksa")
+}
+
+/// SIMRS-owned. READ ONLY.
+model Pasien {
+  noRkmMedis String    @id @map("no_rkm_medis") @db.VarChar(15)
+  nmPasien   String    @map("nm_pasien") @db.VarChar(40)
+  noKtp      String?   @map("no_ktp") @db.VarChar(20)
+  noTlp      String?   @map("no_tlp") @db.VarChar(40)
+  tglLahir   DateTime? @map("tgl_lahir") @db.Date
+  alamat     String?   @db.VarChar(200)
+
+  @@index([noTlp])
+  @@map("pasien")
+}
+
+/// SIMRS-owned. READ ONLY. status: '1' = Aktif melayani, '0' = nonaktif.
+model Poliklinik {
+  kdPoli String @id @map("kd_poli") @db.VarChar(5)
+  nmPoli String @map("nm_poli") @db.VarChar(50)
+  status String @default("1") @db.VarChar(1)
+
+  @@map("poliklinik")
+}
+
+/// SIMRS-owned. READ ONLY.
+/// [UNRESOLVED]: only kd_dokter/nm_dokter are documented; run `simrs:pull`
+/// against a real connection to get the full column set.
+model Dokter {
+  kdDokter String @id @map("kd_dokter") @db.VarChar(20)
+  nmDokter String @map("nm_dokter") @db.VarChar(100)
+
+  @@map("dokter")
+}

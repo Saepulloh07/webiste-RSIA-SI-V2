@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useStore } from "@/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -5,7 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Briefcase, MapPin, Clock, Sparkles, Send, CheckCircle2 } from "lucide-react";
 
 export default function Vacancies() {
-  const { vacancies, settings } = useStore();
+  const { vacancies, settings, fetchVacancies } = useStore();
+
+  useEffect(() => {
+    fetchVacancies();
+  }, [fetchVacancies]);
   
   const activeVacancies = vacancies.filter(v => v.status === "Published");
 

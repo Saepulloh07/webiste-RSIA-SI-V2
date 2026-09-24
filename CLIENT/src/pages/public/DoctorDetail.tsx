@@ -7,13 +7,30 @@ import { useStore } from "@/store";
 import { MediaWatermark } from "@/components/common/MediaWatermark";
 import { SEOHead } from "@/components/common/SEOHead";
 
+import { useState, useEffect } from "react";
+import { api } from "@/app/api";
+
 export default function DoctorDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { doctors, settings } = useStore();
+  const [fetchedDoctor, setFetchedDoctor] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const doctor = doctors.find(d => d.slug === slug || d.id === slug);
+  const doctor = doctors.find(d => d.slug === slug || d.id === slug) || fetchedDoctor;
 
-  if (!doctor) {
+  useEffect(() => {
+    if (!doctors.find(d => d.slug === slug || d.id === slug) && slug) {
+      setIsLoading(true);
+      api.doctors.getOne(slug)
+        .then((res) => {
+          if (res?.data) setFetchedDoctor(res.data);
+        })
+        .catch(() => {})
+        .finally(() => setIsLoading(false));
+    }
+  }, [doctors, slug]);
+
+  if (!doctor && !isLoading) {
     return (
       <div className="container mx-auto px-4 py-24 text-center min-h-[60vh] flex flex-col items-center justify-center">
         <h1 className="text-2xl md:text-3xl font-heading font-bold mb-4 text-slate-800">Dokter Tidak Ditemukan</h1>
@@ -21,6 +38,15 @@ export default function DoctorDetail() {
         <Button asChild className="bg-primary hover:bg-primary/90 rounded-full px-6">
           <Link to="/dokter">Kembali ke Direktori Dokter</Link>
         </Button>
+      </div>
+    );
+  }
+
+  if (isLoading && !doctor) {
+    return (
+      <div className="container mx-auto px-4 py-32 text-center min-h-[60vh] flex flex-col items-center justify-center">
+        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-slate-500 text-sm">Memuat profil dokter...</p>
       </div>
     );
   }

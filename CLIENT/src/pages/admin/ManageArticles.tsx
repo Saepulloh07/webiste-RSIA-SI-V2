@@ -1,25 +1,31 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
-import { Search, Plus, Edit, Trash2, Eye, Newspaper, FileText, Tag, Calendar, UserCheck, Sparkles } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Eye, Newspaper, FileText, Tag, Calendar, UserCheck, Sparkles, Loader2 } from "lucide-react";
 import { useStore, Article } from "@/store";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { api, normalizeRole } from "@/app/api";
 
 export default function ManageArticles() {
   const [search, setSearch] = useState("");
-  const { articles, setArticles } = useStore();
+  const { articles, setArticles, fetchArticles } = useStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [formData, setFormData] = useState<Partial<Article>>({});
   const [tagsText, setTagsText] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
-  const role = localStorage.getItem("adminRole") || "Editor";
+  const role = normalizeRole(localStorage.getItem("adminRole"));
   const isEditor = role === "Editor";
+
+  useEffect(() => {
+    fetchArticles(true);
+  }, [fetchArticles]);
 
   const handleOpenModal = (article?: Article) => {
     if (article) {
@@ -41,33 +47,71 @@ export default function ManageArticles() {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setIsSaving(true);
     const parsedTags = tagsText
       .split(",")
       .map((t) => t.trim())
       .filter((t) => t.length > 0);
 
-    const updatedData: Partial<Article> = {
-      ...formData,
-      tags: parsedTags
+    const payload = {
+      title: formData.title?.trim() || "",
+      category: formData.category || "Kebidanan & Kandungan",
+      status: (formData.status as "Published" | "Draft") || "Published",
+      author: formData.author?.trim() || "Tim Redaksi Medis RSIA Sayang Ibu",
+      content: formData.content?.trim() || "<p></p>",
+      image: formData.image?.trim() || undefined,
+      tags: parsedTags.length > 0 ? parsedTags : undefined,
     };
 
     if (editingArticle) {
-      setArticles(articles.map((a) => (a.id === editingArticle.id ? { ...a, ...updatedData } as Article : a)));
+      try {
+        const res = await api.articles.update(editingArticle.id, payload);
+        if (res?.data) {
+          await fetchArticles(true);
+        } else {
+          setArticles(articles.map((a) => (a.id === editingArticle.id ? { ...a, ...payload } as Article : a)));
+        }
+      } catch (err) {
+        console.warn("API update article failed, updating store locally:", err);
+        setArticles(articles.map((a) => (a.id === editingArticle.id ? { ...a, ...payload } as Article : a)));
+      }
     } else {
-      const newArticle: Article = {
-        ...updatedData,
-        id: Date.now().toString(),
-        date: formData.date || new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
-      } as Article;
-      setArticles([newArticle, ...articles]);
+      try {
+        const res = await api.articles.create(payload);
+        if (res?.data) {
+          await fetchArticles(true);
+        } else {
+          const newArticle: Article = {
+            ...payload,
+            id: Date.now().toString(),
+            date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
+          } as Article;
+          setArticles([newArticle, ...articles]);
+        }
+      } catch (err) {
+        console.warn("API create article failed, adding to store locally:", err);
+        const newArticle: Article = {
+          ...payload,
+          id: Date.now().toString(),
+          date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
+        } as Article;
+        setArticles([newArticle, ...articles]);
+      }
     }
+    setIsSaving(false);
     setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Apakah Anda yakin ingin menghapus artikel ini?")) {
-      setArticles(articles.filter((a) => a.id !== id));
+      try {
+        await api.articles.delete(id);
+        await fetchArticles(true);
+      } catch (err) {
+        console.warn("API delete article failed, deleting locally:", err);
+        setArticles(articles.filter((a) => a.id !== id));
+      }
     }
   };
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Calendar, CheckCircle2, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useStore } from "@/store";
+import { api } from "@/app/api";
 
 const appointmentSchema = z.object({
   patientName: z.string().min(3, "Nama lengkap harus diisi (min. 3 karakter)"),
@@ -25,9 +26,18 @@ const appointmentSchema = z.object({
 type AppointmentFormValues = z.infer<typeof appointmentSchema>;
 
 export default function Appointment() {
-  const { registrationSettings, doctors, services, addAppointment } = useStore();
+  const { registrationSettings, setRegistrationSettings, doctors, services, addAppointment, fetchDoctors, fetchServices } = useStore();
   const [isSuccess, setIsSuccess] = useState(false);
   const [refNumber, setRefNumber] = useState("");
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (doctors.length === 0) fetchDoctors();
+    if (services.length === 0) fetchServices();
+    api.settings.getRegistration().then((res) => {
+      if (res?.data) setRegistrationSettings(res.data);
+    }).catch(() => {});
+  }, [doctors.length, services.length, fetchDoctors, fetchServices, setRegistrationSettings]);
 
   const {
     register,
@@ -38,31 +48,55 @@ export default function Appointment() {
   });
 
   const onSubmit = async (data: AppointmentFormValues) => {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    const newRefNumber = `REG-${Math.floor(100000 + Math.random() * 900000)}`;
-    setRefNumber(newRefNumber);
+    setSubmitError(null);
+    const selectedDoc = doctors.find((d) => d.id === data.doctorId);
+    const selectedServ = services.find((s) => s.id === data.serviceId);
 
-    const selectedDoc = doctors.find(d => d.id === data.doctorId);
-    const selectedServ = services.find(s => s.id === data.serviceId);
+    try {
+      const res = await api.appointments.create({
+        patientName: data.patientName,
+        phone: data.phone,
+        patientType: data.patientType,
+        paymentMethod: data.paymentMethod,
+        serviceId: data.serviceId,
+        serviceName: selectedServ?.name || data.serviceId,
+        doctorId: data.doctorId,
+        doctorName: selectedDoc?.name || data.doctorId,
+        date: data.date,
+        notes: data.notes || "",
+      });
 
-    addAppointment({
-      id: newRefNumber,
-      patientName: data.patientName,
-      phone: data.phone,
-      patientType: data.patientType,
-      paymentMethod: data.paymentMethod,
-      serviceId: data.serviceId,
-      serviceName: selectedServ?.name || data.serviceId,
-      doctorId: data.doctorId,
-      doctorName: selectedDoc?.name || data.doctorId,
-      date: data.date,
-      notes: data.notes || "",
-      status: "Menunggu",
-      createdAt: new Date().toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
-    });
+      const registered = res.data;
+      setRefNumber(registered.id);
+      addAppointment(registered);
+      setIsSuccess(true);
+    } catch (err: any) {
+      console.warn("Failed posting appointment to server, using local fallback:", err);
+      // If error came from validation (e.g. registration closed)
+      if (err.status === 400 && err.message) {
+        setSubmitError(err.message);
+        return;
+      }
 
-    setIsSuccess(true);
+      const fallbackRef = `REG-${Math.floor(100000 + Math.random() * 900000)}`;
+      setRefNumber(fallbackRef);
+      addAppointment({
+        id: fallbackRef,
+        patientName: data.patientName,
+        phone: data.phone,
+        patientType: data.patientType,
+        paymentMethod: data.paymentMethod,
+        serviceId: data.serviceId,
+        serviceName: selectedServ?.name || data.serviceId,
+        doctorId: data.doctorId,
+        doctorName: selectedDoc?.name || data.doctorId,
+        date: data.date,
+        notes: data.notes || "",
+        status: "Menunggu",
+        createdAt: new Date().toISOString(),
+      });
+      setIsSuccess(true);
+    }
   };
 
   if (!registrationSettings.isOpen) {

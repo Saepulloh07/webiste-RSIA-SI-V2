@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { api } from '@/app/api';
 
 export type UserAdmin = {
   id: string;
@@ -99,7 +100,7 @@ export type AppSettings = {
 export type RegistrationSettings = {
   isOpen: boolean;
   maxDailyQuota: number;
-  noticeMessage: string;
+  noticeMessage?: string;
 };
 
 export type JobVacancy = {
@@ -147,6 +148,8 @@ interface AppState {
   appointments: Appointment[];
   settings: AppSettings;
   registrationSettings: RegistrationSettings;
+  isLoading: boolean;
+  isInitialized: boolean;
   
   setUsers: (users: UserAdmin[]) => void;
   setDoctors: (doctors: Doctor[]) => void;
@@ -161,9 +164,25 @@ interface AppState {
   deleteAppointment: (id: string) => void;
   setSettings: (settings: AppSettings) => void;
   setRegistrationSettings: (settings: RegistrationSettings) => void;
+
+  // Async API Actions
+  fetchInitialData: () => Promise<void>;
+  fetchDoctors: () => Promise<void>;
+  fetchServices: () => Promise<void>;
+  fetchArticles: (all?: boolean) => Promise<void>;
+  fetchAds: () => Promise<void>;
+  fetchVacancies: (all?: boolean) => Promise<void>;
+  fetchAppointments: () => Promise<void>;
+  fetchSettings: () => Promise<void>;
+  fetchUsers: () => Promise<void>;
+  fetchMedia: () => Promise<void>;
 }
 
-const generateSlug = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+const generateSlug = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)+/g, '');
 
 const initialSettings: AppSettings = {
   hospitalName: "RSIA Sayang Ibu",
@@ -171,15 +190,15 @@ const initialSettings: AppSettings = {
   aboutText: "RSIA Sayang Ibu Batusangkar berdedikasi menghadirkan pelayanan kesehatan ibu dan anak yang paripurna dengan standar keselamatan pasien tinggi dan tenaga medis profesional di Kabupaten Tanah Datar.",
   operationalHours: "UGD 24 Jam | Poli: Senin - Sabtu 08:00 - 20:00",
   logoUrl: "/logo-sayang-ibu-sm.png",
-  phoneCs: "",
-  phoneEmergency: "",
-  whatsapp: "",
-  email: "",
+  phoneCs: "(0752) 12345",
+  phoneEmergency: "(0752) 12345",
+  whatsapp: "+6281123456789",
+  email: "info@sayangibu.co.id",
   address: "Batusangkar, Kab. Tanah Datar, Sumatera Barat",
-  mapsUrl: "",
+  mapsUrl: "https://maps.google.com/?q=RSIA+Sayang+Ibu+Batusangkar",
   mapsEmbed: "",
-  instagram: "",
-  facebook: "",
+  instagram: "https://instagram.com/rsiasayangibu",
+  facebook: "https://facebook.com/rsiasayangibu",
   youtube: "",
   tiktok: ""
 };
@@ -192,7 +211,7 @@ const initialRegistrationSettings: RegistrationSettings = {
 
 export const useStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       users: [],
       doctors: [],
       services: [],
@@ -203,6 +222,8 @@ export const useStore = create<AppState>()(
       appointments: [],
       settings: initialSettings,
       registrationSettings: initialRegistrationSettings,
+      isLoading: false,
+      isInitialized: false,
       
       setUsers: (users) => set({ users }),
       setDoctors: (doctors) => set({ doctors: doctors.map(d => ({...d, slug: d.slug || generateSlug(d.name)})) }),
@@ -219,8 +240,134 @@ export const useStore = create<AppState>()(
       deleteAppointment: (id) => set((state) => ({
         appointments: state.appointments.filter(a => a.id !== id)
       })),
-      setSettings: (settings) => set({ settings }),
-      setRegistrationSettings: (registrationSettings) => set({ registrationSettings })
+      setSettings: (settings) => set({ settings: { ...initialSettings, ...settings } }),
+      setRegistrationSettings: (registrationSettings) => set({ registrationSettings: { ...initialRegistrationSettings, ...registrationSettings } }),
+
+      fetchInitialData: async () => {
+        set({ isLoading: true });
+        try {
+          const [docsRes, srvRes, artRes, adsRes, vacRes, setRes, regRes] = await Promise.allSettled([
+            api.doctors.getAll({ limit: 100 }),
+            api.services.getAll({ limit: 100 }),
+            api.articles.getAll({ limit: 20 }),
+            api.ads.getAll({ limit: 20 }),
+            api.vacancies.getAll({ limit: 20 }),
+            api.settings.getHospital(),
+            api.settings.getRegistration(),
+          ]);
+
+          if (docsRes.status === 'fulfilled' && docsRes.value?.data) {
+            get().setDoctors(docsRes.value.data);
+          }
+          if (srvRes.status === 'fulfilled' && srvRes.value?.data) {
+            get().setServices(srvRes.value.data);
+          }
+          if (artRes.status === 'fulfilled' && artRes.value?.data) {
+            get().setArticles(artRes.value.data);
+          }
+          if (adsRes.status === 'fulfilled' && adsRes.value?.data) {
+            get().setAds(adsRes.value.data);
+          }
+          if (vacRes.status === 'fulfilled' && vacRes.value?.data) {
+            get().setVacancies(vacRes.value.data);
+          }
+          if (setRes.status === 'fulfilled' && setRes.value?.data) {
+            get().setSettings(setRes.value.data);
+          }
+          if (regRes.status === 'fulfilled' && regRes.value?.data) {
+            get().setRegistrationSettings(regRes.value.data);
+          }
+        } catch (err) {
+          console.warn('Initial data sync from API encountered an issue; using cached data.', err);
+        } finally {
+          set({ isLoading: false, isInitialized: true });
+        }
+      },
+
+      fetchDoctors: async () => {
+        try {
+          const res = await api.doctors.getAll({ limit: 100 });
+          if (res?.data) get().setDoctors(res.data);
+        } catch (err) {
+          console.error('Failed to fetch doctors:', err);
+        }
+      },
+
+      fetchServices: async () => {
+        try {
+          const res = await api.services.getAll({ limit: 100 });
+          if (res?.data) get().setServices(res.data);
+        } catch (err) {
+          console.error('Failed to fetch services:', err);
+        }
+      },
+
+      fetchArticles: async (all = false) => {
+        try {
+          const res = await api.articles.getAll({ limit: 50, all });
+          if (res?.data) get().setArticles(res.data);
+        } catch (err) {
+          console.error('Failed to fetch articles:', err);
+        }
+      },
+
+      fetchAds: async () => {
+        try {
+          const res = await api.ads.getAll({ limit: 50 });
+          if (res?.data) get().setAds(res.data);
+        } catch (err) {
+          console.error('Failed to fetch ads:', err);
+        }
+      },
+
+      fetchVacancies: async (all = false) => {
+        try {
+          const res = await api.vacancies.getAll({ limit: 50, all });
+          if (res?.data) get().setVacancies(res.data);
+        } catch (err) {
+          console.error('Failed to fetch vacancies:', err);
+        }
+      },
+
+      fetchAppointments: async () => {
+        try {
+          const res = await api.appointments.getAll({ limit: 100 });
+          if (res?.data) get().setAppointments(res.data);
+        } catch (err) {
+          console.error('Failed to fetch appointments:', err);
+        }
+      },
+
+      fetchSettings: async () => {
+        try {
+          const [setRes, regRes] = await Promise.all([
+            api.settings.getHospital(),
+            api.settings.getRegistration(),
+          ]);
+          if (setRes?.data) get().setSettings(setRes.data);
+          if (regRes?.data) get().setRegistrationSettings(regRes.data);
+        } catch (err) {
+          console.error('Failed to fetch settings:', err);
+        }
+      },
+
+      fetchUsers: async () => {
+        try {
+          const res = await api.users.getAll({ limit: 50 });
+          if (res?.data) get().setUsers(res.data);
+        } catch (err) {
+          console.error('Failed to fetch users:', err);
+        }
+      },
+
+      fetchMedia: async () => {
+        try {
+          const res = await api.media.getAll({ limit: 100 });
+          if (res?.data) get().setMedia(res.data);
+        } catch (err) {
+          console.error('Failed to fetch media:', err);
+        }
+      },
     }),
     {
       name: 'rsia_sayang_ibu_store_v2',

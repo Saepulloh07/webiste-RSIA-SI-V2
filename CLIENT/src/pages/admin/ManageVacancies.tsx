@@ -1,22 +1,28 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Modal } from "@/components/ui/modal";
-import { Search, Plus, Edit, Trash2, Eye, Briefcase, Building, MapPin, Calendar, Mail, Phone, FileCheck, CheckCircle2, Award } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Eye, Briefcase, Building, MapPin, Calendar, Mail, Phone, FileCheck, CheckCircle2, Award, Loader2 } from "lucide-react";
 import { useStore, JobVacancy } from "@/store";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { api } from "@/app/api";
 
 export default function ManageVacancies() {
   const [search, setSearch] = useState("");
-  const { vacancies, setVacancies } = useStore();
+  const { vacancies, setVacancies, fetchVacancies } = useStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   
   const role = localStorage.getItem("adminRole") || "Editor";
   const isEditor = role === "Editor";
+
+  useEffect(() => {
+    fetchVacancies(true);
+  }, [fetchVacancies]);
 
   const [formData, setFormData] = useState<Partial<JobVacancy>>({
     title: "",
@@ -55,37 +61,74 @@ export default function ManageVacancies() {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.title || !formData.department) {
       alert("Mohon lengkapi judul dan departemen.");
       return;
     }
 
+    setIsSaving(true);
+    const payload = {
+      title: formData.title.trim(),
+      department: formData.department.trim(),
+      type: (formData.type as "Full Time" | "Part Time" | "Kontrak") || "Full Time",
+      location: formData.location?.trim() || "Batusangkar",
+      experience: formData.experience?.trim() || undefined,
+      deadline: formData.deadline?.trim() || undefined,
+      contactEmail: formData.contactEmail?.trim() || undefined,
+      contactWa: formData.contactWa?.trim() || undefined,
+      status: (formData.status as "Published" | "Draft") || "Published",
+      description: formData.description?.trim() || "",
+      requirements: formData.requirements?.trim() || "",
+    };
+
     if (editingId) {
-      setVacancies(vacancies.map(v => v.id === editingId ? { ...v, ...formData, date: v.date } as JobVacancy : v));
+      try {
+        const res = await api.vacancies.update(editingId, payload);
+        if (res?.data) {
+          await fetchVacancies(true);
+        } else {
+          setVacancies(vacancies.map(v => v.id === editingId ? { ...v, ...payload } as JobVacancy : v));
+        }
+      } catch (err) {
+        console.warn("API update vacancy failed, updating locally:", err);
+        setVacancies(vacancies.map(v => v.id === editingId ? { ...v, ...payload } as JobVacancy : v));
+      }
     } else {
-      const newVacancy: JobVacancy = {
-        id: Date.now().toString(),
-        title: formData.title!,
-        department: formData.department!,
-        type: (formData.type as any) || "Full Time",
-        location: formData.location || "Batusangkar",
-        experience: formData.experience || "",
-        deadline: formData.deadline || "",
-        contactEmail: formData.contactEmail || "",
-        contactWa: formData.contactWa || "",
-        status: isEditor ? "Draft" : (formData.status as any) || "Published",
-        description: formData.description || "",
-        requirements: formData.requirements || "",
-        date: new Date().toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' })
-      };
-      setVacancies([newVacancy, ...vacancies]);
+      try {
+        const res = await api.vacancies.create(payload);
+        if (res?.data) {
+          await fetchVacancies(true);
+        } else {
+          const newVacancy: JobVacancy = {
+            id: Date.now().toString(),
+            ...payload,
+            date: new Date().toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' })
+          } as JobVacancy;
+          setVacancies([newVacancy, ...vacancies]);
+        }
+      } catch (err) {
+        console.warn("API create vacancy failed, adding locally:", err);
+        const newVacancy: JobVacancy = {
+          id: Date.now().toString(),
+          ...payload,
+          date: new Date().toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' })
+        } as JobVacancy;
+        setVacancies([newVacancy, ...vacancies]);
+      }
     }
+    setIsSaving(false);
     setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Yakin ingin menghapus lowongan ini?")) {
+      try {
+        await api.vacancies.delete(id);
+        await fetchVacancies(true);
+      } catch (err) {
+        console.warn("API delete vacancy failed, deleting locally:", err);
+      }
       setVacancies(vacancies.filter(v => v.id !== id));
     }
   };

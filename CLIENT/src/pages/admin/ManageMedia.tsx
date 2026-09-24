@@ -1,19 +1,31 @@
-import { useState, useRef } from "react";
-import { Search, UploadCloud, Folder, FileImage, FileVideo, File, Trash2, Link as LinkIcon, MoreVertical } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Search, UploadCloud, Folder, FileImage, FileVideo, File, Trash2, Link as LinkIcon, MoreVertical, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useStore, MediaItem } from "@/store";
+import { api } from "@/app/api";
 
 export default function MediaLibrary() {
   const [search, setSearch] = useState("");
-  const { media, setMedia } = useStore();
+  const { media, setMedia, fetchMedia } = useStore();
   const [filter, setFilter] = useState("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleDelete = (id: string) => {
+  useEffect(() => {
+    fetchMedia();
+  }, [fetchMedia]);
+
+  const handleDelete = async (id: string) => {
     if (confirm("Yakin ingin menghapus berkas ini dari server?")) {
-      setMedia(media.filter(m => m.id !== id));
+      try {
+        await api.media.delete(id);
+        await fetchMedia();
+      } catch (err) {
+        console.warn("API delete media failed, deleting locally:", err);
+        setMedia(media.filter(m => m.id !== id));
+      }
     }
   };
 
@@ -24,23 +36,35 @@ export default function MediaLibrary() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const result = event.target?.result as string;
-        const newItem: MediaItem = {
-          id: Date.now().toString(),
-          name: file.name,
-          type: "website_image",
-          url: result,
-          size: (file.size / 1024 / 1024).toFixed(2) + " MB",
-          date: new Date().toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' })
+      setIsUploading(true);
+      const targetType = filter !== 'all' ? filter : 'website_image';
+      try {
+        const res = await api.media.upload(file, targetType);
+        if (res?.data) {
+          await fetchMedia();
+        }
+      } catch (err) {
+        console.warn("API upload failed, storing locally as preview:", err);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const result = event.target?.result as string;
+          const newItem: MediaItem = {
+            id: Date.now().toString(),
+            name: file.name,
+            type: targetType as any,
+            url: result,
+            size: (file.size / 1024 / 1024).toFixed(2) + " MB",
+            date: new Date().toLocaleDateString("id-ID", { day: '2-digit', month: 'short', year: 'numeric' })
+          };
+          setMedia([newItem, ...media]);
         };
-        setMedia([newItem, ...media]);
-      };
-      reader.readAsDataURL(file);
+        reader.readAsDataURL(file);
+      } finally {
+        setIsUploading(false);
+      }
     }
     if (fileInputRef.current) {
       fileInputRef.current.value = "";

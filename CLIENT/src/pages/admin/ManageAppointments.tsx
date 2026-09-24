@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Settings, CheckCircle2, Clock, Calendar, XCircle, Search, User, Stethoscope, ChevronRight, Check, Trash2, Phone, CreditCard } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Settings, CheckCircle2, Clock, Calendar, XCircle, Search, User, Stethoscope, ChevronRight, Check, Trash2, Phone, CreditCard, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,16 +7,39 @@ import { useStore, Appointment } from "@/store";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
+import { api } from "@/app/api";
 
 export default function ManageAppointments() {
-  const { appointments, updateAppointmentStatus, deleteAppointment, registrationSettings, setRegistrationSettings } = useStore();
+  const { appointments, updateAppointmentStatus, deleteAppointment, registrationSettings, setRegistrationSettings, fetchAppointments } = useStore();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [tempSettings, setTempSettings] = useState(registrationSettings);
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [search, setSearch] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const handleSaveSettings = () => {
+  useEffect(() => {
+    fetchAppointments();
+    api.settings.getRegistration().then((res) => {
+      if (res?.data) {
+        setRegistrationSettings(res.data);
+        setTempSettings(res.data);
+      }
+    }).catch(() => {});
+  }, [fetchAppointments, setRegistrationSettings]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchAppointments();
+    setIsRefreshing(false);
+  };
+
+  const handleSaveSettings = async () => {
+    try {
+      await api.settings.updateRegistration(tempSettings);
+    } catch (e) {
+      console.warn("Failed saving registration settings to API, saving locally:", e);
+    }
     setRegistrationSettings(tempSettings);
     setSavedFeedback(true);
     setTimeout(() => {
@@ -25,16 +48,28 @@ export default function ManageAppointments() {
     }, 1200);
   };
 
-  const handleStatusChange = (id: string, status: Appointment["status"]) => {
-    updateAppointmentStatus(id, status);
+  const handleStatusChange = async (id: string, status: Appointment["status"]) => {
+    try {
+      await api.appointments.update(id, { status });
+      await fetchAppointments();
+    } catch (e) {
+      console.warn("Failed updating appointment status via API, updating locally:", e);
+      updateAppointmentStatus(id, status);
+    }
     if (selectedAppointment && selectedAppointment.id === id) {
       setSelectedAppointment({ ...selectedAppointment, status });
     }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Apakah Anda yakin ingin menghapus data pendaftaran ini?")) {
-      deleteAppointment(id);
+      try {
+        await api.appointments.delete(id);
+        await fetchAppointments();
+      } catch (e) {
+        console.warn("Failed deleting appointment via API, deleting locally:", e);
+        deleteAppointment(id);
+      }
       if (selectedAppointment && selectedAppointment.id === id) {
         setSelectedAppointment(null);
       }

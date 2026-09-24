@@ -3,7 +3,7 @@ import { motion } from "motion/react";
 import {
   ArrowRight, Stethoscope, Clock, ShieldCheck,
   Activity, Baby, HeartPulse, MapPin,
-  Phone, Mail, Calendar, Play, Sparkles
+  Phone, Mail, Calendar, Play, Sparkles, Tag, Gift
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useStore } from "@/store";
@@ -12,10 +12,11 @@ import { DoctorCard } from "@/components/cards/DoctorCard";
 import { SEOHead } from "@/components/common/SEOHead";
 
 export default function Home() {
-  const { articles, settings, media, services, doctors } = useStore();
+  const { articles, settings, media, services, doctors, ads } = useStore();
   const publishedArticles = articles.filter(a => a.status === 'Published').slice(0, 3);
   const activeDoctors = doctors.filter(d => d.status === 'Aktif').slice(0, 4);
   const displayServices = (services || []).filter(s => s.status === 'Aktif').slice(0, 3);
+  const activeAds = (ads || []).filter(a => a.status === 'Aktif');
 
   const heroImage = media.find(m => m.type === 'website_image' && m.name === 'hero-banner') ||
     media.find(m => m.type === 'website_image') ||
@@ -209,6 +210,35 @@ export default function Home() {
           </motion.div>
         </motion.div>
       </section>
+
+      {/* Featured Promo Banner from CMS (if active) */}
+      {activeAds.length > 0 && (
+        <section className="py-6 container mx-auto px-4 md:px-6">
+          <div className="bg-gradient-to-r from-rose-500 via-primary to-amber-500 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
+            <div className="relative z-10 max-w-2xl text-center md:text-left">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-amber-200 text-xs font-semibold mb-3 border border-white/20">
+                <Gift className="w-3.5 h-3.5 text-amber-300" />
+                <span>{activeAds[0].badge || "Promo Spesial"}</span>
+              </div>
+              <h3 className="text-xl md:text-3xl font-bold font-heading mb-2 leading-tight">
+                {activeAds[0].title}
+              </h3>
+              <p className="text-white/90 text-xs md:text-sm line-clamp-2 max-w-xl">
+                {activeAds[0].content}
+              </p>
+            </div>
+            <div className="relative z-10 shrink-0">
+              <Link
+                to={`/promo/${activeAds[0].slug || activeAds[0].id}`}
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-white text-primary font-bold text-sm hover:bg-amber-50 transition-all shadow-lg hover:scale-105"
+              >
+                Lihat Detail Promo <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Services Snippet section (Dynamic from CMS) */}
       <section className="py-16 md:py-24 relative bg-gradient-to-b from-transparent via-rose-50/20 to-transparent">

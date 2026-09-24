@@ -29,6 +29,8 @@ import ManageAppointments from "@/pages/admin/ManageAppointments";
 import ManageVacancies from "@/pages/admin/ManageVacancies";
 import Login from "@/pages/admin/Login";
 
+import { RoleGuard } from "@/components/auth/RoleGuard";
+
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -61,16 +63,86 @@ export const router = createBrowserRouter([
     path: "/admin",
     element: <AdminLayout />,
     children: [
-      { index: true, element: <Dashboard /> },
-      { path: "doctors", element: <ManageDoctors /> },
-      { path: "services", element: <ManageServices /> },
-      { path: "appointments", element: <ManageAppointments /> },
-      { path: "articles", element: <ManageArticles /> },
-      { path: "users", element: <ManageUsers /> },
-      { path: "ads", element: <ManageAds /> },
-      { path: "media", element: <ManageMedia /> },
-      { path: "settings", element: <ManageSettings /> },
-      { path: "vacancies", element: <ManageVacancies /> },
+      {
+        index: true,
+        element: (
+          <RoleGuard allowedRoles={["Super Admin", "Admin", "Editor"]}>
+            <Dashboard />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: "doctors",
+        element: (
+          <RoleGuard allowedRoles={["Super Admin", "Admin"]}>
+            <ManageDoctors />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: "services",
+        element: (
+          <RoleGuard allowedRoles={["Super Admin", "Admin"]}>
+            <ManageServices />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: "appointments",
+        element: (
+          <RoleGuard allowedRoles={["Super Admin", "Admin"]}>
+            <ManageAppointments />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: "articles",
+        element: (
+          <RoleGuard allowedRoles={["Super Admin", "Admin", "Editor"]}>
+            <ManageArticles />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: "users",
+        element: (
+          <RoleGuard allowedRoles={["Super Admin"]}>
+            <ManageUsers />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: "ads",
+        element: (
+          <RoleGuard allowedRoles={["Super Admin", "Admin", "Editor"]}>
+            <ManageAds />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: "media",
+        element: (
+          <RoleGuard allowedRoles={["Super Admin", "Admin", "Editor"]}>
+            <ManageMedia />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: "settings",
+        element: (
+          <RoleGuard allowedRoles={["Super Admin"]}>
+            <ManageSettings />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: "vacancies",
+        element: (
+          <RoleGuard allowedRoles={["Super Admin", "Admin", "Editor"]}>
+            <ManageVacancies />
+          </RoleGuard>
+        ),
+      },
     ],
   },
 ]);

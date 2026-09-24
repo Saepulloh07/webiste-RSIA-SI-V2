@@ -1,16 +1,40 @@
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { ArrowLeft, ArrowRight, HeartPulse, Activity, Baby, Clock, CheckCircle2, Calendar, Stethoscope, Sparkles } from "lucide-react";
 import { useStore, Service } from "@/store";
 import { MediaWatermark } from "@/components/common/MediaWatermark";
 import { Badge } from "@/components/ui/badge";
-
 import { Button } from "@/components/ui/button";
+import { api } from "@/app/api";
 
 export default function ServiceDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { services, doctors, settings } = useStore();
+  const [fetchedService, setFetchedService] = useState<Service | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const service = services.find(s => s.slug === slug || s.id === slug);
+  const service = services.find(s => s.slug === slug || s.id === slug) || fetchedService;
+
+  useEffect(() => {
+    if (!services.find(s => s.slug === slug || s.id === slug) && slug) {
+      setIsLoading(true);
+      api.services.getOne(slug)
+        .then((res) => {
+          if (res?.data) setFetchedService(res.data);
+        })
+        .catch(() => {})
+        .finally(() => setIsLoading(false));
+    }
+  }, [services, slug]);
+
+  if (isLoading && !service) {
+    return (
+      <div className="container mx-auto px-4 py-32 text-center min-h-[60vh] flex flex-col items-center justify-center">
+        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-slate-500 text-sm">Memuat informasi layanan...</p>
+      </div>
+    );
+  }
 
   if (!service) {
     return (

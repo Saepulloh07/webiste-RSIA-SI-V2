@@ -1,24 +1,38 @@
 import { useState, useEffect } from "react";
-import { Save, Globe, MapPin, Phone, Mail, Clock, Share2, Check } from "lucide-react";
+import { Save, Globe, MapPin, Phone, Mail, Clock, Share2, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useStore, AppSettings } from "@/store";
 import { ImageUpload } from "@/components/ui/image-upload";
+import { api } from "@/app/api";
 
 export default function ManageSettings() {
   const [activeTab, setActiveTab] = useState("general");
-  const { settings, setSettings } = useStore();
+  const { settings, setSettings, fetchSettings } = useStore();
   const [formData, setFormData] = useState<AppSettings>(settings);
   const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
 
   useEffect(() => {
     setFormData(settings);
   }, [settings]);
 
-  const handleSave = (e?: React.FormEvent) => {
+  const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    setSettings(formData);
+    setIsSaving(true);
+    try {
+      await api.settings.updateHospital(formData);
+      await fetchSettings();
+    } catch (err) {
+      console.warn("API update settings failed, updating locally:", err);
+      setSettings(formData);
+    }
+    setIsSaving(false);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2500);
   };

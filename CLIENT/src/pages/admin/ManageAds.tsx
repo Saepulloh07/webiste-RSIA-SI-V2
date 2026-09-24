@@ -1,14 +1,15 @@
-import { useState } from "react";
-import { Plus, Edit2, Trash2, Search, Link as LinkIcon, ExternalLink, Megaphone, Tag, Percent, Calendar, MessageSquare, Sparkles, Globe, PhoneCall } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Edit2, Trash2, Search, Link as LinkIcon, ExternalLink, Megaphone, Tag, Percent, Calendar, MessageSquare, Sparkles, Globe, PhoneCall, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useStore, AdCampaign } from "@/store";
 import { ImageUpload } from "@/components/ui/image-upload";
+import { api, normalizeRole } from "@/app/api";
 
 export default function ManageAds() {
-  const { ads, setAds } = useStore();
+  const { ads, setAds, fetchAds } = useStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAd, setEditingAd] = useState<AdCampaign | null>(null);
 
@@ -16,9 +17,14 @@ export default function ManageAds() {
   const [highlightsText, setHighlightsText] = useState("");
   const [search, setSearch] = useState("");
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const role = localStorage.getItem("adminRole") || "Editor";
+  const role = normalizeRole(localStorage.getItem("adminRole"));
   const isEditor = role === "Editor";
+
+  useEffect(() => {
+    fetchAds();
+  }, [fetchAds]);
 
   const handleOpenModal = (ad?: AdCampaign) => {
     if (ad) {
@@ -33,8 +39,8 @@ export default function ManageAds() {
         badge: "Diskon Terbatas",
         price: "",
         originalPrice: "",
-        startDate: "",
-        endDate: "",
+        startDate: new Date().toISOString().split("T")[0],
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
         status: isEditor ? "Draft" : "Aktif",
         content: "",
         targetKeywords: "",
@@ -45,28 +51,66 @@ export default function ManageAds() {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setIsSaving(true);
     const parsedHighlights = highlightsText
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
 
-    const updatedData: Partial<AdCampaign> = {
-      ...formData,
-      highlights: parsedHighlights
+    const payload = {
+      title: formData.title?.trim() || "",
+      badge: formData.badge?.trim() || "Promo Spesial",
+      price: formData.price?.trim() || undefined,
+      originalPrice: formData.originalPrice?.trim() || undefined,
+      startDate: formData.startDate || new Date().toISOString().split("T")[0],
+      endDate: formData.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      status: (formData.status as "Aktif" | "Berakhir" | "Draft") || "Aktif",
+      content: formData.content?.trim() || "",
+      image: formData.image?.trim() || undefined,
+      highlights: parsedHighlights.length > 0 ? parsedHighlights : undefined,
+      targetKeywords: formData.targetKeywords?.trim() || undefined,
+      contactWa: formData.contactWa?.trim() || undefined,
     };
 
     if (editingAd) {
-      setAds(ads.map((a) => (a.id === editingAd.id ? { ...a, ...updatedData } as AdCampaign : a)));
+      try {
+        const res = await api.ads.update(editingAd.id, payload);
+        if (res?.data) {
+          await fetchAds();
+        } else {
+          setAds(ads.map((a) => (a.id === editingAd.id ? { ...a, ...payload } as AdCampaign : a)));
+        }
+      } catch (err) {
+        console.warn("API update ad failed, updating locally:", err);
+        setAds(ads.map((a) => (a.id === editingAd.id ? { ...a, ...payload } as AdCampaign : a)));
+      }
     } else {
-      setAds([...ads, { ...updatedData, id: Date.now().toString() } as AdCampaign]);
+      try {
+        const res = await api.ads.create(payload);
+        if (res?.data) {
+          await fetchAds();
+        } else {
+          setAds([{ ...payload, id: Date.now().toString(), slug: (payload.title || 'promo').toLowerCase().replace(/[^a-z0-9]+/g, '-') } as AdCampaign, ...ads]);
+        }
+      } catch (err) {
+        console.warn("API create ad failed, adding locally:", err);
+        setAds([{ ...payload, id: Date.now().toString(), slug: (payload.title || 'promo').toLowerCase().replace(/[^a-z0-9]+/g, '-') } as AdCampaign, ...ads]);
+      }
     }
+    setIsSaving(false);
     setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Apakah Anda yakin ingin menghapus iklan/promo ini?")) {
-      setAds(ads.filter((a) => a.id !== id));
+      try {
+        await api.ads.delete(id);
+        await fetchAds();
+      } catch (err) {
+        console.warn("API delete ad failed, deleting locally:", err);
+        setAds(ads.filter((a) => a.id !== id));
+      }
     }
   };
 

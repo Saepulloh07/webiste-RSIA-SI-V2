@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useStore } from "@/store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +7,12 @@ import { Link } from "react-router-dom";
 import { MediaWatermark } from "@/components/common/MediaWatermark";
 
 export default function Services() {
-  const { services, settings } = useStore();
+  const { services, settings, fetchServices } = useStore();
+
+  useEffect(() => {
+    fetchServices();
+  }, [fetchServices]);
+
   const activeServices = services.filter(s => s.status === "Aktif");
 
   const getServiceIcon = (category: string, name: string) => {

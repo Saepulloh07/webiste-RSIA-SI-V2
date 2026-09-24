@@ -1,22 +1,27 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Modal } from "@/components/ui/modal";
-import { Search, Plus, Edit, Trash2, Stethoscope, Calendar, GraduationCap, UserCheck, FileText } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Stethoscope, Calendar, GraduationCap, UserCheck, FileText, Loader2 } from "lucide-react";
 import { useStore, Doctor } from "@/store";
 import { ImageUpload } from "@/components/ui/image-upload";
+import { api } from "@/app/api";
 
 export default function ManageDoctors() {
   const [search, setSearch] = useState("");
-  const { doctors, setDoctors } = useStore();
+  const { doctors, setDoctors, fetchDoctors } = useStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
   const [formData, setFormData] = useState<Partial<Doctor>>({});
-
   const [educationText, setEducationText] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    fetchDoctors();
+  }, [fetchDoctors]);
 
   const handleOpenModal = (doc?: Doctor) => {
     if (doc) {
@@ -41,28 +46,64 @@ export default function ManageDoctors() {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setIsSaving(true);
     const parsedEducation = educationText
       .split("\n")
       .map(line => line.trim())
       .filter(line => line.length > 0);
 
-    const updatedData: Partial<Doctor> = {
-      ...formData,
-      education: parsedEducation
+    const payload = {
+      name: formData.name?.trim() || "",
+      specialty: formData.specialty || "Kandungan",
+      subspecialty: formData.subspecialty?.trim() || undefined,
+      status: formData.status || "Aktif",
+      schedule: formData.schedule?.trim() || "",
+      image: formData.image?.trim() || undefined,
+      sipNumber: formData.sipNumber?.trim() || undefined,
+      poliklinik: formData.poliklinik?.trim() || undefined,
+      bio: formData.bio?.trim() || undefined,
+      education: parsedEducation.length > 0 ? parsedEducation : undefined,
     };
 
     if (editingDoctor) {
-      setDoctors(doctors.map((d) => (d.id === editingDoctor.id ? { ...d, ...updatedData } as Doctor : d)));
+      try {
+        const res = await api.doctors.update(editingDoctor.id, payload);
+        if (res?.data) {
+          await fetchDoctors();
+        } else {
+          setDoctors(doctors.map((d) => (d.id === editingDoctor.id ? { ...d, ...payload } as Doctor : d)));
+        }
+      } catch (err) {
+        console.warn("API update doctor failed, updating store locally:", err);
+        setDoctors(doctors.map((d) => (d.id === editingDoctor.id ? { ...d, ...payload } as Doctor : d)));
+      }
     } else {
-      setDoctors([{ ...updatedData, id: Date.now().toString() } as Doctor, ...doctors]);
+      try {
+        const res = await api.doctors.create(payload);
+        if (res?.data) {
+          await fetchDoctors();
+        } else {
+          setDoctors([{ ...payload, id: Date.now().toString() } as Doctor, ...doctors]);
+        }
+      } catch (err) {
+        console.warn("API create doctor failed, adding to store locally:", err);
+        setDoctors([{ ...payload, id: Date.now().toString() } as Doctor, ...doctors]);
+      }
     }
+    setIsSaving(false);
     setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Apakah Anda yakin ingin menghapus dokter ini dari direktori?")) {
-      setDoctors(doctors.filter((d) => d.id !== id));
+      try {
+        await api.doctors.delete(id);
+        await fetchDoctors();
+      } catch (err) {
+        console.warn("API delete doctor failed, deleting locally:", err);
+        setDoctors(doctors.filter((d) => d.id !== id));
+      }
     }
   };
 

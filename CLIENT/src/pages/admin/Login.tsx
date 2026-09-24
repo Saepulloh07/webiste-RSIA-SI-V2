@@ -5,23 +5,47 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert } from "@/components/ui/alert";
-import { HeartPulse, Lock } from "lucide-react";
+import { Lock, Loader2 } from "lucide-react";
+import { api, setAuthSession } from "@/app/api";
 
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError(false);
+    setErrorMessage(null);
 
-    setTimeout(() => {
+    try {
+      // 1. Authenticate against Backend API
+      const res = await api.auth.login({ email, password });
+      if (res?.data?.token && res?.data?.user) {
+        setAuthSession(
+          res.data.token,
+          res.data.refreshToken,
+          res.data.user.role,
+          res.data.user
+        );
+        navigate("/admin");
+        return;
+      }
+    } catch (err: any) {
+      console.warn("Backend auth response/error:", err);
+
+      // Check if it's an invalid credentials error from backend
+      if (err.status === 401 || err.status === 400) {
+        setErrorMessage(err.message || "Email atau kata sandi salah. Silakan periksa kembali.");
+        setIsLoading(false);
+        return;
+      }
+
+      // 2. Fallback for offline demo mode if backend is unreachable
       let role = "";
-      if (email === "superadmin@sayangibu.co.id" && password === "admin123") {
+      if (email === "superadmin@sayangibu.co.id" && (password === "admin123" || password === "ChangeMe123!")) {
         role = "Super Admin";
       } else if (email === "admin@sayangibu.co.id" && password === "admin123") {
         role = "Admin";
@@ -30,14 +54,22 @@ export default function Login() {
       }
 
       if (role) {
-        localStorage.setItem("isAdminLoggedIn", "true");
-        localStorage.setItem("adminRole", role);
+        setAuthSession("demo_offline_token", undefined, role, {
+          id: "1",
+          name: `${role} Demo`,
+          email,
+          role,
+        });
         navigate("/admin");
-      } else {
-        setError(true);
-        setIsLoading(false);
+        return;
       }
-    }, 1000);
+
+      setErrorMessage(
+        err.message || "Gagal menghubungi server. Periksa koneksi backend Anda."
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -62,21 +94,19 @@ export default function Login() {
           <CardHeader className="space-y-1 pb-6 text-center">
             <CardTitle className="text-2xl font-bold font-heading">Selamat Datang</CardTitle>
             <CardDescription>
-              Silakan login untuk mengakses dashboard
+              Silakan login untuk mengakses dashboard CMS
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {error && (
+            {errorMessage && (
               <Alert variant="destructive" className="mb-6">
-                Kredensial tidak valid. Gunakan password "admin123" dengan email superadmin/admin/editor@sayangibu.co.id
+                {errorMessage}
               </Alert>
             )}
 
             <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg text-xs text-slate-600 mb-6 space-y-1">
-              <p className="font-semibold mb-2">Akun Demo (Password: admin123):</p>
-              <p>• <strong>superadmin</strong>@sayangibu.co.id</p>
-              <p>• <strong>admin</strong>@sayangibu.co.id</p>
-              <p>• <strong>editor</strong>@sayangibu.co.id</p>
+              <p className="font-semibold mb-2">Akun Default CMS:</p>
+              <p>• <strong>superadmin@sayangibu.co.id</strong> (Password: admin123 / ChangeMe123!)</p>
             </div>
 
             <form onSubmit={handleLogin} className="space-y-4">
@@ -104,7 +134,11 @@ export default function Login() {
                 />
               </div>
               <Button type="submit" className="w-full mt-6 h-11" disabled={isLoading}>
-                {isLoading ? "Memverifikasi..." : (
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Memverifikasi...
+                  </>
+                ) : (
                   <>
                     <Lock className="w-4 h-4 mr-2" /> Masuk ke Dashboard
                   </>

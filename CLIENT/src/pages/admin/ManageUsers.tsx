@@ -1,19 +1,27 @@
-import { useState } from "react";
-import { Plus, Edit2, Trash2, Search, ShieldCheck, User, Lock, Mail, Shield, KeyRound, Check } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Edit2, Trash2, Search, ShieldCheck, User, Lock, Mail, Shield, KeyRound, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useStore, UserAdmin } from "@/store";
+import { api } from "@/app/api";
 
 export default function ManageUsers() {
-  const { users, setUsers } = useStore();
+  const { users, setUsers, fetchUsers } = useStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserAdmin | null>(null);
   const [formData, setFormData] = useState<Partial<UserAdmin>>({});
+  const [password, setPassword] = useState("");
   const [search, setSearch] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleOpenModal = (user?: UserAdmin) => {
+    setPassword("");
     if (user) {
       setEditingUser(user);
       setFormData(user);
@@ -29,18 +37,58 @@ export default function ManageUsers() {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
-    if (editingUser) {
-      setUsers(users.map((u) => (u.id === editingUser.id ? { ...u, ...formData } as UserAdmin : u)));
-    } else {
-      setUsers([...users, { ...formData, id: Date.now().toString() } as UserAdmin]);
+  const handleSave = async () => {
+    setIsSaving(true);
+    const payload: any = {
+      name: formData.name || "",
+      email: formData.email || "",
+      role: formData.role || "Editor",
+    };
+    if (password) {
+      payload.password = password;
     }
+
+    if (editingUser) {
+      try {
+        const res = await api.users.update(editingUser.id, payload);
+        if (res?.data) {
+          await fetchUsers();
+        } else {
+          setUsers(users.map((u) => (u.id === editingUser.id ? { ...u, ...formData } as UserAdmin : u)));
+        }
+      } catch (err) {
+        console.warn("API update user failed, updating locally:", err);
+        setUsers(users.map((u) => (u.id === editingUser.id ? { ...u, ...formData } as UserAdmin : u)));
+      }
+    } else {
+      try {
+        const res = await api.users.create({
+          ...payload,
+          password: password || "Password123!",
+        });
+        if (res?.data) {
+          await fetchUsers();
+        } else {
+          setUsers([...users, { ...formData, id: Date.now().toString() } as UserAdmin]);
+        }
+      } catch (err) {
+        console.warn("API create user failed, adding locally:", err);
+        setUsers([...users, { ...formData, id: Date.now().toString() } as UserAdmin]);
+      }
+    }
+    setIsSaving(false);
     setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Apakah Anda yakin ingin menghapus pengguna CMS ini?")) {
-      setUsers(users.filter((u) => u.id !== id));
+      try {
+        await api.users.delete(id);
+        await fetchUsers();
+      } catch (err) {
+        console.warn("API delete user failed, deleting locally:", err);
+        setUsers(users.filter((u) => u.id !== id));
+      }
     }
   };
 
@@ -249,21 +297,23 @@ export default function ManageUsers() {
                 </div>
               </div>
 
-              {!editingUser && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="password" className="text-xs font-semibold text-slate-700">Kata Sandi Default <span className="text-rose-500">*</span></Label>
-                  <div className="relative">
-                    <Input 
-                      id="password" 
-                      type="password"
-                      placeholder="Minimal 8 karakter kombinasi"
-                      className="h-10 bg-white pr-9"
-                    />
-                    <KeyRound className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
-                  </div>
-                  <p className="text-[11px] text-slate-400">Pengguna dapat mengganti kata sandi setelah berhasil login.</p>
+              <div className="space-y-1.5">
+                <Label htmlFor="password" className="text-xs font-semibold text-slate-700">
+                  {editingUser ? "Kata Sandi Baru (Kosongkan jika tidak diubah)" : "Kata Sandi Default *"}
+                </Label>
+                <div className="relative">
+                  <Input 
+                    id="password" 
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={editingUser ? "Masukkan kata sandi baru" : "Minimal 8 karakter kombinasi"}
+                    className="h-10 bg-white pr-9"
+                  />
+                  <KeyRound className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
                 </div>
-              )}
+                <p className="text-[11px] text-slate-400">Pengguna dapat mengganti kata sandi setelah berhasil login.</p>
+              </div>
             </div>
           </div>
 

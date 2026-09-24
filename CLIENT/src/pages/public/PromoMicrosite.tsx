@@ -6,14 +6,37 @@ import { useStore, AdCampaign } from "@/store";
 import { SEOHead } from "@/components/common/SEOHead";
 import { MediaWatermark } from "@/components/common/MediaWatermark";
 import { HospitalLogo } from "@/components/common/HospitalLogo";
-
 import { Button } from "@/components/ui/button";
+import { api } from "@/app/api";
 
 export default function PromoMicrosite() {
   const { slug } = useParams<{ slug: string }>();
   const { ads, settings } = useStore();
+  const [fetchedCampaign, setFetchedCampaign] = useState<AdCampaign | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const campaign = ads.find(a => a.slug === slug || a.id === slug);
+  const campaign = ads.find(a => a.slug === slug || a.id === slug) || fetchedCampaign;
+
+  useEffect(() => {
+    if (!ads.find(a => a.slug === slug || a.id === slug) && slug) {
+      setIsLoading(true);
+      api.ads.getOne(slug)
+        .then((res) => {
+          if (res?.data) setFetchedCampaign(res.data);
+        })
+        .catch(() => {})
+        .finally(() => setIsLoading(false));
+    }
+  }, [ads, slug]);
+
+  if (isLoading && !campaign) {
+    return (
+      <div className="container mx-auto px-4 py-32 text-center min-h-[60vh] flex flex-col items-center justify-center">
+        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-slate-500 text-sm">Memuat promo layanan...</p>
+      </div>
+    );
+  }
 
   if (!campaign) {
     return (

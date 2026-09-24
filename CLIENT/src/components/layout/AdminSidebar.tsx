@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import { api, clearAuthSession, normalizeRole } from "@/app/api";
 
 interface AdminSidebarProps {
   isOpen?: boolean;
@@ -29,7 +30,7 @@ export function AdminSidebar({ isOpen = false, onClose }: AdminSidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
-  const role = localStorage.getItem("adminRole") || "Editor";
+  const role = normalizeRole(localStorage.getItem("adminRole"));
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -50,8 +51,8 @@ export function AdminSidebar({ isOpen = false, onClose }: AdminSidebarProps) {
   );
 
   const handleLogout = () => {
-    localStorage.removeItem("isAdminLoggedIn");
-    localStorage.removeItem("adminRole");
+    api.auth.logout();
+    clearAuthSession();
     navigate("/admin/login");
   };
 
@@ -59,12 +60,28 @@ export function AdminSidebar({ isOpen = false, onClose }: AdminSidebarProps) {
   const isAdmin = role === "Admin" || role === "Super Admin";
   const isEditor = role === "Editor" || role === "Admin" || role === "Super Admin";
 
+  let userName = "Administrator";
+  try {
+    const raw = localStorage.getItem("adminUser");
+    if (raw) {
+      const u = JSON.parse(raw);
+      if (u.name) userName = u.name;
+    }
+  } catch {}
+
+  const roleColorBadge =
+    role === "Super Admin"
+      ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
+      : role === "Admin"
+      ? "text-blue-400 bg-blue-500/10 border-blue-500/30"
+      : "text-amber-400 bg-amber-500/10 border-amber-500/30";
+
   const sidebarContent = (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="h-16 flex items-center justify-between px-5 border-b border-slate-800/80 bg-slate-950/40 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-12 rounded-full bg-white p-1 border border-amber-300 flex items-center justify-center shrink-0 overflow-hidden shadow-sm aspect-square">
+          <div className="w-9 h-9 rounded-full bg-white p-1 border border-amber-300 flex items-center justify-center shrink-0 overflow-hidden shadow-sm aspect-square">
             <img
               src="/logo-sayang-ibu-sm.png"
               alt="Logo RSIA"
@@ -126,12 +143,14 @@ export function AdminSidebar({ isOpen = false, onClose }: AdminSidebarProps) {
       <div className="p-3.5 border-t border-slate-800/80 bg-slate-950/60 space-y-2.5 shrink-0">
         <div className="px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-primary/20 text-primary flex items-center justify-center shrink-0">
-              <ShieldCheck className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-xl bg-primary/20 text-primary flex items-center justify-center shrink-0 font-bold text-xs">
+              {userName.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">
-              <span className="text-xs font-semibold text-slate-200 block truncate">Administrator</span>
-              <span className="text-[10px] text-emerald-400 font-medium">{role}</span>
+              <span className="text-xs font-semibold text-slate-200 block truncate">{userName}</span>
+              <span className={`inline-block px-1.5 py-0.2 rounded text-[10px] border font-medium ${roleColorBadge}`}>
+                {role}
+              </span>
             </div>
           </div>
         </div>

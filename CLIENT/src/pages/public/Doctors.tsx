@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DoctorCard } from "@/components/cards/DoctorCard";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/select";
@@ -6,9 +6,13 @@ import { Search, Sparkles, UserCheck } from "lucide-react";
 import { useStore } from "@/store";
 
 export default function Doctors() {
-  const { doctors, settings } = useStore();
+  const { doctors, settings, fetchDoctors } = useStore();
   const [search, setSearch] = useState("");
   const [specialty, setSpecialty] = useState("Semua Spesialisasi");
+
+  useEffect(() => {
+    fetchDoctors();
+  }, [fetchDoctors]);
 
   const specialties = ["Semua Spesialisasi", ...Array.from(new Set(doctors.map(d => d.specialty)))];
 
