@@ -1,6 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ServiceStatus } from '@prisma/client';
+import { Transform } from 'class-transformer';
 import { ArrayNotEmpty, IsArray, IsEnum, IsNotEmpty, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+
+/** Menormalkan input "Aktif"/"Nonaktif" (sesuai API_DOCUMENTATION.txt) menjadi key enum Prisma. */
+const STATUS_LABEL_MAP: Record<string, ServiceStatus> = {
+  aktif: ServiceStatus.AKTIF,
+  nonaktif: ServiceStatus.NONAKTIF,
+};
+const normalizeServiceStatus = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? (STATUS_LABEL_MAP[value.toLowerCase()] ?? value) : value;
 
 export class CreateServiceDto {
   @ApiProperty({ example: 'Laboratorium 24 Jam' })
@@ -15,8 +24,9 @@ export class CreateServiceDto {
   @MaxLength(100)
   category: string;
 
-  @ApiPropertyOptional({ enum: ServiceStatus, default: ServiceStatus.AKTIF })
+  @ApiPropertyOptional({ example: 'Aktif', enum: ServiceStatus, default: ServiceStatus.AKTIF })
   @IsOptional()
+  @Transform(normalizeServiceStatus)
   @IsEnum(ServiceStatus, { message: 'status harus salah satu dari: Aktif, Nonaktif' })
   status?: ServiceStatus;
 

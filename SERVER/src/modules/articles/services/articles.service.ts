@@ -11,9 +11,9 @@ const SORTABLE_FIELDS = ['title', 'category', 'createdAt', 'updatedAt'];
 
 @Injectable()
 export class ArticlesService {
-  constructor(private readonly repo: ArticlesRepository) {}
+  constructor(private readonly repo: ArticlesRepository) { }
 
-  async list(query: QueryArticleDto & { all?: boolean }, isPublic: boolean) {
+  async list(query: QueryArticleDto, isPublic: boolean) {
     const limit = query.limit ?? 10;
     const page = query.page ?? 1;
     let status: ArticleStatus | undefined;
@@ -54,7 +54,7 @@ export class ArticlesService {
       imageUrl: dto.image,
       tags: dto.tags as Prisma.InputJsonValue,
     });
-    return { id: article.id.toString(), slug: article.slug, title: article.title, status: article.status };
+    return this.toResponse(article);
   }
 
   async update(id: string, dto: UpdateArticleDto) {
@@ -73,7 +73,6 @@ export class ArticlesService {
   }
 
   async remove(id: string, role: string) {
-    // DELETE is Super Admin + Admin only (Editor may write/edit but not delete).
     if (role === 'EDITOR') {
       throw new ForbiddenException('Pengguna tidak memiliki role yang diizinkan untuk resource ini.');
     }
@@ -99,13 +98,17 @@ export class ArticlesService {
   }
 
   private toResponse(article: NonNullable<Awaited<ReturnType<ArticlesRepository['findById']>>>) {
+    const statusMap: Record<string, string> = {
+      PUBLISHED: 'Published',
+      DRAFT: 'Draft',
+    };
     return {
       id: article.id.toString(),
       title: article.title,
       slug: article.slug,
       category: article.category,
       date: article.date,
-      status: article.status,
+      status: statusMap[article.status] || article.status,
       author: article.author,
       content: article.content,
       image: article.imageUrl,

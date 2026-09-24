@@ -11,11 +11,11 @@ import { Roles } from '../../../common/decorators/roles.decorator';
 @ApiTags('Job Vacancies')
 @Controller('vacancies')
 export class VacanciesController {
-  constructor(private readonly vacanciesService: VacanciesService) {}
+  constructor(private readonly vacanciesService: VacanciesService) { }
 
   @Public()
   @Get()
-  async list(@Query() query: QueryVacancyDto & { all?: boolean }) {
+  async list(@Query() query: QueryVacancyDto) {
     const isPublic = !query.status && !query.all;
     const { data, meta } = await this.vacanciesService.list(query, isPublic);
     return { message: 'Daftar lowongan berhasil diambil.', data, meta };

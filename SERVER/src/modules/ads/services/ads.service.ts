@@ -50,7 +50,7 @@ export class AdsService {
       targetKeywords: dto.targetKeywords,
       contactWa: dto.contactWa,
     });
-    return { id: ad.id.toString(), slug: ad.slug, title: ad.title, status: ad.status };
+    return this.toResponse(ad);
   }
 
   async update(id: string, dto: UpdateAdDto) {
@@ -104,6 +104,11 @@ export class AdsService {
   }
 
   private toResponse(ad: NonNullable<Awaited<ReturnType<AdsRepository['findById']>>>) {
+    const statusMap: Record<string, string> = {
+      AKTIF: 'Aktif',
+      BERAKHIR: 'Berakhir',
+      DRAFT: 'Draft',
+    };
     return {
       id: ad.id.toString(),
       title: ad.title,
@@ -113,7 +118,7 @@ export class AdsService {
       originalPrice: ad.originalPrice,
       startDate: ad.startDate.toISOString().slice(0, 10),
       endDate: ad.endDate.toISOString().slice(0, 10),
-      status: ad.status,
+      status: statusMap[ad.status] || ad.status,
       content: ad.content,
       image: ad.imageUrl,
       highlights: ad.highlights,

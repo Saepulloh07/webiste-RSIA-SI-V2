@@ -16,7 +16,6 @@ async function bootstrap() {
 
   const apiPrefix = config.get<string>('app.apiPrefix') ?? 'api/v1';
   app.setGlobalPrefix(apiPrefix, {
-    // Endpoints documented outside the /api/v1 prefix (queue + SIMRS bridge).
     exclude: [
       { path: 'api/queue/check', method: RequestMethod.POST },
       { path: 'api/queue/my-queue', method: RequestMethod.GET },
@@ -26,8 +25,10 @@ async function bootstrap() {
     ],
   });
 
-  // Security headers (Helmet: XSS, clickjacking, MIME sniffing protection).
-  app.use(helmet());
+  // Security headers (Helmet). crossOriginResourcePolicy 'cross-origin' agar
+  // gambar di /uploads/* tetap bisa dimuat dari origin frontend yang berbeda
+  // port/domain (dulu ini yang bikin ERR_BLOCKED_BY_RESPONSE.NotSameOrigin).
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
   // CORS whitelist per documentation.
   const origins = (config.get<string>('app.corsOrigins') ?? '')
@@ -39,7 +40,6 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // X-Request-ID tracking header for audit log correlation.
   app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
     const existing = req.header('X-Request-ID');
     const requestId = existing && existing.length > 0 ? existing : uuidv4();
@@ -48,7 +48,6 @@ async function bootstrap() {
     next();
   });
 
-  // Serve locally-stored media uploads when STORAGE_DRIVER=local.
   app.use('/uploads', express.static(config.get<string>('storage.localUploadDir') ?? './uploads'));
 
   app.useGlobalPipes(
@@ -75,7 +74,6 @@ async function bootstrap() {
 
   const port = config.get<number>('app.port') ?? 5000;
   await app.listen(port);
-  // eslint-disable-next-line no-console
   console.log(`🚀 Server ready on http://localhost:${port}/${apiPrefix}`);
 }
 

@@ -11,9 +11,9 @@ const SORTABLE_FIELDS = ['title', 'department', 'deadline', 'createdAt', 'update
 
 @Injectable()
 export class VacanciesService {
-  constructor(private readonly repo: VacanciesRepository) {}
+  constructor(private readonly repo: VacanciesRepository) { }
 
-  async list(query: QueryVacancyDto & { all?: boolean }, isPublic: boolean) {
+  async list(query: QueryVacancyDto, isPublic: boolean) {
     const limit = query.limit ?? 10;
     const page = query.page ?? 1;
     let status: VacancyStatus | undefined;
@@ -59,7 +59,7 @@ export class VacanciesService {
       contactWa: dto.contactWa,
       date: this.formatIndonesianDate(new Date()),
     });
-    return { id: vacancy.id.toString(), slug: vacancy.slug, title: vacancy.title, status: vacancy.status };
+    return this.toResponse(vacancy);
   }
 
   async update(id: string, dto: UpdateVacancyDto) {

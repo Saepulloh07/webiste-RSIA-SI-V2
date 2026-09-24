@@ -45,7 +45,7 @@ export class ServicesService {
       facilities: dto.facilities as Prisma.InputJsonValue,
       operationalHours: dto.operationalHours,
     });
-    return { id: service.id.toString(), slug: service.slug, name: service.name, category: service.category };
+    return this.toResponse(service);
   }
 
   async update(id: string, dto: UpdateServiceDto) {
@@ -82,12 +82,16 @@ export class ServicesService {
   }
 
   private toResponse(service: NonNullable<Awaited<ReturnType<ServicesRepository['findById']>>>) {
+    const statusMap: Record<string, string> = {
+      AKTIF: 'Aktif',
+      NONAKTIF: 'Nonaktif',
+    };
     return {
       id: service.id.toString(),
       name: service.name,
       slug: service.slug,
       category: service.category,
-      status: service.status,
+      status: statusMap[service.status] || service.status,
       description: service.description,
       image: service.imageUrl,
       operationalHours: service.operationalHours,

@@ -53,12 +53,7 @@ export class DoctorsService {
       bio: dto.bio,
       education: dto.education as Prisma.InputJsonValue,
     });
-    return {
-      id: doctor.id.toString(),
-      slug: doctor.slug,
-      name: doctor.name,
-      specialty: doctor.specialty,
-    };
+    return this.toResponse(doctor);
   }
 
   async update(id: string, dto: UpdateDoctorDto) {
@@ -105,13 +100,18 @@ export class DoctorsService {
   }
 
   private toResponse(doctor: NonNullable<Awaited<ReturnType<DoctorsRepository['findById']>>>) {
+    const statusMap: Record<string, string> = {
+      AKTIF: 'Aktif',
+      CUTI: 'Cuti',
+      NONAKTIF: 'Nonaktif',
+    };
     return {
       id: doctor.id.toString(),
       name: doctor.name,
       slug: doctor.slug,
       specialty: doctor.specialty,
       subspecialty: doctor.subspecialty,
-      status: doctor.status,
+      status: statusMap[doctor.status] || doctor.status,
       schedule: doctor.schedule,
       sipNumber: doctor.sipNumber,
       poliklinik: doctor.poliklinik,

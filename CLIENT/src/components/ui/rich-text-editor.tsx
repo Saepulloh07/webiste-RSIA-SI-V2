@@ -1,6 +1,5 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import Underline from '@tiptap/extension-underline';
 import { Bold, Italic, Underline as UnderlineIcon, List, ListOrdered, Quote, Heading2 } from 'lucide-react';
 
 interface RichTextEditorProps {
@@ -10,11 +9,12 @@ interface RichTextEditorProps {
 
 export function RichTextEditor({ content, onChange }: RichTextEditorProps) {
   const editor = useEditor({
-    extensions: [StarterKit, Underline],
+    extensions: [StarterKit],
     content,
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
+
     editorProps: {
       attributes: {
         class: 'prose prose-sm sm:prose-base max-w-none min-h-[200px] p-4 focus:outline-none border-b border-x border-slate-200 rounded-b-md',

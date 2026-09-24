@@ -13,11 +13,11 @@ import { AuthenticatedUser } from '../../../common/interfaces/request-with-user.
 @ApiTags('Articles')
 @Controller('articles')
 export class ArticlesController {
-  constructor(private readonly articlesService: ArticlesService) {}
+  constructor(private readonly articlesService: ArticlesService) { }
 
   @Public()
   @Get()
-  async list(@Query() query: QueryArticleDto & { all?: boolean }) {
+  async list(@Query() query: QueryArticleDto) {
     const isPublic = !query.status && !query.all;
     const { data, meta } = await this.articlesService.list(query, isPublic);
     return { message: 'Daftar artikel berhasil diambil.', data, meta };
