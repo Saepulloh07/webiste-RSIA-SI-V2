@@ -83,7 +83,7 @@ export default function Articles() {
                         alt={article.title}
                         loading="lazy"
                         decoding="async"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                        className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
 
@@ -150,8 +150,8 @@ export default function Articles() {
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
                     className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${selectedCategory === cat
-                        ? "bg-gradient-to-r from-primary to-amber-600 text-white shadow-sm"
-                        : "bg-amber-50/70 text-slate-700 hover:bg-amber-100"
+                      ? "bg-gradient-to-r from-primary to-amber-600 text-white shadow-sm"
+                      : "bg-amber-50/70 text-slate-700 hover:bg-amber-100"
                       }`}
                   >
                     {cat}

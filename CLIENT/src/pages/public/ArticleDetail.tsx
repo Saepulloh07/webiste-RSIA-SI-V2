@@ -23,7 +23,7 @@ export default function ArticleDetail() {
         .then((res) => {
           if (res?.data) setFetchedArticle(res.data);
         })
-        .catch(() => {})
+        .catch(() => { })
         .finally(() => setIsLoading(false));
     }
   }, [articles, slug]);
@@ -110,7 +110,7 @@ export default function ArticleDetail() {
           loading="eager"
           decoding="async"
           fetchPriority="high"
-          className="w-full h-full object-cover opacity-80"
+          className="w-full h-full object-cover object-top opacity-80"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/60 to-transparent"></div>
 
@@ -151,6 +151,19 @@ export default function ArticleDetail() {
           {/* Main Content */}
           <div className="lg:col-span-2">
             <div className="bg-white rounded-3xl p-6 sm:p-8 md:p-10 border border-amber-100 shadow-sm">
+
+              {/* Featured Image inside Article Section */}
+              <div className="w-full aspect-video rounded-2xl overflow-hidden relative mb-8 border border-amber-100 bg-slate-100">
+                <img
+                  src={articleImage}
+                  alt={article.title}
+                  loading="lazy"
+                  decoding="async"
+                  className="w-full h-full object-cover object-top"
+                />
+                <MediaWatermark size="sm" />
+              </div>
+
               <div
                 className="prose prose-slate max-w-none text-slate-700 leading-relaxed text-sm md:text-base space-y-4"
                 dangerouslySetInnerHTML={{ __html: article.content }}
