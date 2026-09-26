@@ -150,7 +150,7 @@ interface AppState {
   registrationSettings: RegistrationSettings;
   isLoading: boolean;
   isInitialized: boolean;
-  
+
   setUsers: (users: UserAdmin[]) => void;
   setDoctors: (doctors: Doctor[]) => void;
   setServices: (services: Service[]) => void;
@@ -224,14 +224,14 @@ export const useStore = create<AppState>()(
       registrationSettings: initialRegistrationSettings,
       isLoading: false,
       isInitialized: false,
-      
+
       setUsers: (users) => set({ users }),
-      setDoctors: (doctors) => set({ doctors: doctors.map(d => ({...d, slug: d.slug || generateSlug(d.name)})) }),
-      setServices: (services) => set({ services: services.map(s => ({...s, slug: s.slug || generateSlug(s.name)})) }),
-      setArticles: (articles) => set({ articles: articles.map(a => ({...a, slug: a.slug || generateSlug(a.title)})) }),
+      setDoctors: (doctors) => set({ doctors: doctors.map(d => ({ ...d, slug: d.slug || generateSlug(d.name) })) }),
+      setServices: (services) => set({ services: services.map(s => ({ ...s, slug: s.slug || generateSlug(s.name) })) }),
+      setArticles: (articles) => set({ articles: articles.map(a => ({ ...a, slug: a.slug || generateSlug(a.title) })) }),
       setAds: (ads) => set({ ads }),
       setMedia: (media) => set({ media }),
-      setVacancies: (vacancies) => set({ vacancies: vacancies.map(v => ({...v, slug: v.slug || generateSlug(v.title)})) }),
+      setVacancies: (vacancies) => set({ vacancies: vacancies.map(v => ({ ...v, slug: v.slug || generateSlug(v.title) })) }),
       setAppointments: (appointments) => set({ appointments }),
       addAppointment: (appointment) => set((state) => ({ appointments: [appointment, ...state.appointments] })),
       updateAppointmentStatus: (id, status) => set((state) => ({
@@ -246,7 +246,7 @@ export const useStore = create<AppState>()(
       fetchInitialData: async () => {
         set({ isLoading: true });
         try {
-          const [docsRes, srvRes, artRes, adsRes, vacRes, setRes, regRes] = await Promise.allSettled([
+          const [docsRes, srvRes, artRes, adsRes, vacRes, setRes, regRes, mediaRes] = await Promise.allSettled([
             api.doctors.getAll({ limit: 100 }),
             api.services.getAll({ limit: 100 }),
             api.articles.getAll({ limit: 20 }),
@@ -254,6 +254,11 @@ export const useStore = create<AppState>()(
             api.vacancies.getAll({ limit: 20 }),
             api.settings.getHospital(),
             api.settings.getRegistration(),
+            // Media publik (termasuk gambar slideshow Beranda) sebelumnya TIDAK
+            // pernah di-fetch di sini, sehingga hero section publik selalu jatuh
+            // ke gambar placeholder default, meskipun admin sudah mengunggah
+            // gambar slideshow lewat CMS.
+            api.media.getAll({ limit: 100 }),
           ]);
 
           if (docsRes.status === 'fulfilled' && docsRes.value?.data) {
@@ -276,6 +281,9 @@ export const useStore = create<AppState>()(
           }
           if (regRes.status === 'fulfilled' && regRes.value?.data) {
             get().setRegistrationSettings(regRes.value.data);
+          }
+          if (mediaRes.status === 'fulfilled' && mediaRes.value?.data) {
+            get().setMedia(mediaRes.value.data);
           }
         } catch (err) {
           console.warn('Initial data sync from API encountered an issue; using cached data.', err);

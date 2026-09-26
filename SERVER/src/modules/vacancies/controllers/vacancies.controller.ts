@@ -8,6 +8,9 @@ import { QueryVacancyDto } from '../dto/query-vacancy.dto';
 import { Public } from '../../../common/decorators/public.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
 
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../../../common/interfaces/request-with-user.interface';
+
 @ApiTags('Job Vacancies')
 @Controller('vacancies')
 export class VacanciesController {
@@ -30,24 +33,24 @@ export class VacanciesController {
   }
 
   @ApiBearerAuth()
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() dto: CreateVacancyDto) {
-    const data = await this.vacanciesService.create(dto);
+  async create(@Body() dto: CreateVacancyDto, @CurrentUser() user: AuthenticatedUser) {
+    const data = await this.vacanciesService.create(dto, user.role);
     return { message: 'Lowongan baru berhasil ditambahkan.', data };
   }
 
   @ApiBearerAuth()
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
   @Put(':id')
-  async update(@Param('id') id: string, @Body() dto: UpdateVacancyDto) {
-    const data = await this.vacanciesService.update(id, dto);
+  async update(@Param('id') id: string, @Body() dto: UpdateVacancyDto, @CurrentUser() user: AuthenticatedUser) {
+    const data = await this.vacanciesService.update(id, dto, user.role);
     return { message: 'Lowongan berhasil diperbarui.', data };
   }
 
   @ApiBearerAuth()
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
   @Delete(':id')
   async remove(@Param('id') id: string) {
     await this.vacanciesService.remove(id);

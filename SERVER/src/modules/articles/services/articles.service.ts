@@ -41,14 +41,15 @@ export class ArticlesService {
     return this.toResponse(article);
   }
 
-  async create(dto: CreateArticleDto) {
+  async create(dto: CreateArticleDto, role?: string) {
     const slug = await this.generateUniqueSlug(dto.title);
+    const status = role === 'EDITOR' ? ArticleStatus.DRAFT : dto.status;
     const article = await this.repo.create({
       title: dto.title,
       slug,
       category: dto.category,
       date: this.formatIndonesianDate(new Date()),
-      status: dto.status,
+      status,
       author: dto.author,
       content: dto.content,
       imageUrl: dto.image,
@@ -57,13 +58,14 @@ export class ArticlesService {
     return this.toResponse(article);
   }
 
-  async update(id: string, dto: UpdateArticleDto) {
+  async update(id: string, dto: UpdateArticleDto, role?: string) {
     const existing = await this.repo.findById(BigInt(id));
     if (!existing) throw new NotFoundException('Artikel tidak ditemukan.');
+    const status = role === 'EDITOR' ? ArticleStatus.DRAFT : dto.status;
     const article = await this.repo.update(BigInt(id), {
       ...(dto.title !== undefined ? { title: dto.title } : {}),
       ...(dto.category !== undefined ? { category: dto.category } : {}),
-      ...(dto.status !== undefined ? { status: dto.status } : {}),
+      ...(status !== undefined ? { status } : {}),
       ...(dto.author !== undefined ? { author: dto.author } : {}),
       ...(dto.content !== undefined ? { content: dto.content } : {}),
       ...(dto.image !== undefined ? { imageUrl: dto.image } : {}),
@@ -72,10 +74,7 @@ export class ArticlesService {
     return this.toResponse(article);
   }
 
-  async remove(id: string, role: string) {
-    if (role === 'EDITOR') {
-      throw new ForbiddenException('Pengguna tidak memiliki role yang diizinkan untuk resource ini.');
-    }
+  async remove(id: string, _role?: string) {
     const existing = await this.repo.findById(BigInt(id));
     if (!existing) throw new NotFoundException('Artikel tidak ditemukan.');
     await this.repo.delete(BigInt(id));

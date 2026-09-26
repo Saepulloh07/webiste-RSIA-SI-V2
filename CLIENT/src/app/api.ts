@@ -115,9 +115,14 @@ async function request<T = any>(
     if (response.status === 401 && endpoint !== 'auth/login') {
       clearAuthSession();
     }
-    const errorMessage =
-      json?.message ||
-      (json?.errors ? Object.values(json.errors).flat().join(', ') : 'Terjadi kesalahan pada server');
+    // Untuk error validasi (422), backend mengirim `message` generik ("Validasi
+    // gagal...") DAN `errors` berisi rincian per-field. Prioritaskan rincian
+    // per-field itu supaya pengguna tahu persis kolom mana yang bermasalah,
+    // alih-alih hanya melihat pesan generik yang tidak actionable.
+    const fieldMessages = json?.errors && typeof json.errors === 'object'
+      ? Object.values(json.errors).flat().filter(Boolean).join(', ')
+      : '';
+    const errorMessage = fieldMessages || json?.message || 'Terjadi kesalahan pada server';
     const error: Error & { details?: any; status?: number } = new Error(errorMessage);
     error.details = json;
     error.status = response.status;

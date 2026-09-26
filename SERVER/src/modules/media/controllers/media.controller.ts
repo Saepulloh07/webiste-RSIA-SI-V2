@@ -17,6 +17,7 @@ import { UserRole } from '@prisma/client';
 import { MediaService } from '../services/media.service';
 import { QueryMediaDto } from '../dto/query-media.dto';
 import { UploadMediaDto } from '../dto/upload-media.dto';
+import { Public } from '../../../common/decorators/public.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
 
 @ApiTags('Media')
@@ -25,7 +26,7 @@ import { Roles } from '../../../common/decorators/roles.decorator';
 export class MediaController {
   constructor(private readonly mediaService: MediaService) {}
 
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
+  @Public()
   @Get()
   async list(@Query() query: QueryMediaDto) {
     const { data, meta } = await this.mediaService.list(query);
@@ -42,7 +43,7 @@ export class MediaController {
     return { message: 'Media berhasil diunggah.', data };
   }
 
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
   @Delete(':id')
   async remove(@Param('id') id: string) {
     await this.mediaService.remove(id);

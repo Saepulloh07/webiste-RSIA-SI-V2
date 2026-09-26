@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { AdCampaignStatus, Prisma } from '@prisma/client';
 import { AdsRepository } from '../repositories/ads.repository';
 import { CreateAdDto } from '../dto/create-ad.dto';
 import { UpdateAdDto } from '../dto/update-ad.dto';
@@ -32,9 +32,10 @@ export class AdsService {
     return this.toResponse(ad);
   }
 
-  async create(dto: CreateAdDto) {
+  async create(dto: CreateAdDto, role?: string) {
     this.assertDateRange(dto.startDate, dto.endDate);
     const slug = await this.generateUniqueSlug(dto.title);
+    const status = role === 'EDITOR' ? AdCampaignStatus.DRAFT : dto.status;
     const ad = await this.repo.create({
       title: dto.title,
       slug,
@@ -43,7 +44,7 @@ export class AdsService {
       originalPrice: dto.originalPrice,
       startDate: new Date(dto.startDate),
       endDate: new Date(dto.endDate),
-      status: dto.status,
+      status,
       content: dto.content,
       imageUrl: dto.image,
       highlights: dto.highlights as Prisma.InputJsonValue,
@@ -53,7 +54,7 @@ export class AdsService {
     return this.toResponse(ad);
   }
 
-  async update(id: string, dto: UpdateAdDto) {
+  async update(id: string, dto: UpdateAdDto, role?: string) {
     const existing = await this.repo.findById(BigInt(id));
     if (!existing) throw new NotFoundException('Promo tidak ditemukan.');
     if (dto.startDate || dto.endDate) {
@@ -62,6 +63,7 @@ export class AdsService {
         dto.endDate ?? existing.endDate.toISOString(),
       );
     }
+    const status = role === 'EDITOR' ? AdCampaignStatus.DRAFT : dto.status;
     const ad = await this.repo.update(BigInt(id), {
       ...(dto.title !== undefined ? { title: dto.title } : {}),
       ...(dto.badge !== undefined ? { badge: dto.badge } : {}),
@@ -69,7 +71,7 @@ export class AdsService {
       ...(dto.originalPrice !== undefined ? { originalPrice: dto.originalPrice } : {}),
       ...(dto.startDate !== undefined ? { startDate: new Date(dto.startDate) } : {}),
       ...(dto.endDate !== undefined ? { endDate: new Date(dto.endDate) } : {}),
-      ...(dto.status !== undefined ? { status: dto.status } : {}),
+      ...(status !== undefined ? { status } : {}),
       ...(dto.content !== undefined ? { content: dto.content } : {}),
       ...(dto.image !== undefined ? { imageUrl: dto.image } : {}),
       ...(dto.highlights !== undefined ? { highlights: dto.highlights as Prisma.InputJsonValue } : {}),

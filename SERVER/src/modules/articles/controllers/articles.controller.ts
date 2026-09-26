@@ -35,16 +35,16 @@ export class ArticlesController {
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() dto: CreateArticleDto) {
-    const data = await this.articlesService.create(dto);
+  async create(@Body() dto: CreateArticleDto, @CurrentUser() user: AuthenticatedUser) {
+    const data = await this.articlesService.create(dto, user.role);
     return { message: 'Artikel baru berhasil ditambahkan.', data };
   }
 
   @ApiBearerAuth()
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
   @Put(':id')
-  async update(@Param('id') id: string, @Body() dto: UpdateArticleDto) {
-    const data = await this.articlesService.update(id, dto);
+  async update(@Param('id') id: string, @Body() dto: UpdateArticleDto, @CurrentUser() user: AuthenticatedUser) {
+    const data = await this.articlesService.update(id, dto, user.role);
     return { message: 'Artikel berhasil diperbarui.', data };
   }
 

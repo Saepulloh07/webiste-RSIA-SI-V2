@@ -28,7 +28,7 @@ export class ServicesController {
   }
 
   @ApiBearerAuth()
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateServiceDto) {
@@ -37,7 +37,7 @@ export class ServicesController {
   }
 
   @ApiBearerAuth()
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
   @Put(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateServiceDto) {
     const data = await this.servicesService.update(id, dto);
@@ -45,7 +45,7 @@ export class ServicesController {
   }
 
   @ApiBearerAuth()
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
   @Delete(':id')
   async remove(@Param('id') id: string) {
     await this.servicesService.remove(id);

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useStore, MediaItem } from "@/store";
 import { api } from "@/app/api";
+import { alertSuccess, alertError, alertWarning, alertConfirm, extractApiErrorMessage } from "@/utils/alert";
 
 export default function MediaLibrary() {
   const [search, setSearch] = useState("");
@@ -18,14 +19,22 @@ export default function MediaLibrary() {
   }, [fetchMedia]);
 
   const handleDelete = async (id: string) => {
-    if (confirm("Yakin ingin menghapus berkas ini dari server?")) {
-      try {
-        await api.media.delete(id);
-        await fetchMedia();
-      } catch (err) {
-        console.warn("API delete media failed, deleting locally:", err);
-        setMedia(media.filter(m => m.id !== id));
-      }
+    const confirmed = await alertConfirm(
+      "Hapus berkas ini?",
+      "Berkas akan dihapus permanen dari server dan tidak dapat dikembalikan.",
+      "Ya, hapus",
+      "Batal"
+    );
+    if (!confirmed) return;
+
+    try {
+      await api.media.delete(id);
+      await fetchMedia();
+      await alertSuccess("Berkas berhasil dihapus");
+    } catch (err) {
+      console.warn("API delete media failed, deleting locally:", err);
+      setMedia(media.filter(m => m.id !== id));
+      await alertWarning("Terhapus secara lokal", extractApiErrorMessage(err, "Server tidak dapat dihubungi."));
     }
   };
 
@@ -45,6 +54,7 @@ export default function MediaLibrary() {
         const res = await api.media.upload(file, targetType);
         if (res?.data) {
           await fetchMedia();
+          await alertSuccess("Media berhasil diunggah");
         }
       } catch (err) {
         console.warn("API upload failed, storing locally as preview:", err);
@@ -62,6 +72,7 @@ export default function MediaLibrary() {
           setMedia([newItem, ...media]);
         };
         reader.readAsDataURL(file);
+        await alertWarning("Tersimpan sementara di perangkat ini", extractApiErrorMessage(err, "Server tidak dapat dihubungi."));
       } finally {
         setIsUploading(false);
       }
@@ -83,15 +94,15 @@ export default function MediaLibrary() {
           <p className="text-xs sm:text-sm text-slate-500">Kelola gambar, banner, dan dokumen website Anda.</p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            className="hidden" 
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
             accept="image/*"
-            onChange={handleFileUpload} 
+            onChange={handleFileUpload}
           />
-          <Button 
-            onClick={() => fileInputRef.current?.click()} 
+          <Button
+            onClick={() => fileInputRef.current?.click()}
             className="flex-1 sm:flex-none gap-2 bg-primary hover:bg-primary/90 text-white rounded-xl shadow-sm font-semibold"
           >
             <UploadCloud className="w-4 h-4" /> Unggah Media
@@ -104,8 +115,8 @@ export default function MediaLibrary() {
         <div className="p-3.5 sm:p-4 border-b border-slate-200/80 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-slate-50/50">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input 
-              placeholder="Cari nama berkas..." 
+            <Input
+              placeholder="Cari nama berkas..."
               className="pl-9 h-9.5 bg-white text-sm rounded-xl"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -118,14 +129,13 @@ export default function MediaLibrary() {
               { id: 'website_image', label: 'Gambar Website' },
               { id: 'video', label: 'Video' },
             ].map(tab => (
-              <button 
+              <button
                 key={tab.id}
-                onClick={() => setFilter(tab.id)} 
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg shrink-0 transition-colors ${
-                  filter === tab.id 
-                    ? 'bg-primary text-white shadow-xs' 
-                    : 'text-slate-600 bg-white border border-slate-200/80 hover:bg-slate-50'
-                }`}
+                onClick={() => setFilter(tab.id)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg shrink-0 transition-colors ${filter === tab.id
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'text-slate-600 bg-white border border-slate-200/80 hover:bg-slate-50'
+                  }`}
               >
                 {tab.label}
               </button>
@@ -146,23 +156,22 @@ export default function MediaLibrary() {
                   ) : (
                     <File className="w-10 h-10 text-slate-400" />
                   )}
-                  
+
                   {/* Actions: Always visible on mobile, visible on hover for desktop */}
                   <div className="absolute top-1.5 right-1.5 flex gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                    <button 
-                      onClick={() => handleCopy(item.id, item.url)} 
-                      className={`p-1.5 rounded-lg shadow-sm backdrop-blur-sm transition-colors ${
-                        copiedId === item.id 
-                          ? 'bg-emerald-600 text-white' 
-                          : 'bg-white/95 text-slate-700 hover:text-primary'
-                      }`} 
+                    <button
+                      onClick={() => handleCopy(item.id, item.url)}
+                      className={`p-1.5 rounded-lg shadow-sm backdrop-blur-sm transition-colors ${copiedId === item.id
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-white/95 text-slate-700 hover:text-primary'
+                        }`}
                       title="Salin URL"
                     >
                       <LinkIcon className="w-3.5 h-3.5" />
                     </button>
-                    <button 
-                      onClick={() => handleDelete(item.id)} 
-                      className="p-1.5 bg-white/95 backdrop-blur-sm rounded-lg text-slate-700 hover:text-rose-600 shadow-sm transition-colors" 
+                    <button
+                      onClick={() => handleDelete(item.id)}
+                      className="p-1.5 bg-white/95 backdrop-blur-sm rounded-lg text-slate-700 hover:text-rose-600 shadow-sm transition-colors"
                       title="Hapus"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -185,7 +194,7 @@ export default function MediaLibrary() {
               </div>
             ))}
           </div>
-          
+
           {filteredMedia.length === 0 && (
             <div className="flex flex-col items-center justify-center text-slate-400 py-12">
               <Folder className="w-12 h-12 mb-3 opacity-20" />

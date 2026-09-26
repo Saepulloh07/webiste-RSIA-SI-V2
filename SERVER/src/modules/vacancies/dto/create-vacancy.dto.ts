@@ -37,25 +37,35 @@ export class CreateVacancyDto {
 
   @ApiPropertyOptional({ example: 'Minimal 1 tahun' })
   @IsOptional()
-  @Transform(({ value }) => (value === '' || value === null ? undefined : value))
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() ? value.trim() : undefined))
   @IsString()
   @MaxLength(100)
   experience?: string;
 
   @ApiPropertyOptional({ example: '2026-12-31' })
   @IsOptional()
-  @Transform(({ value }) => (value === '' || value === null ? undefined : value))
+  @Transform(({ value }) => {
+    if (!value || value === '' || value === null) return undefined;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return undefined;
+      if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10);
+      const d = new Date(trimmed);
+      if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+    }
+    return undefined;
+  })
   @IsDateString()
   deadline?: string;
 
   @ApiPropertyOptional({ enum: VacancyStatus, default: VacancyStatus.DRAFT })
   @IsOptional()
   @Transform(({ value }) => {
-    if (!value) return value;
-    const s = String(value).toUpperCase();
+    if (!value) return VacancyStatus.DRAFT;
+    const s = String(value).toUpperCase().trim();
     if (s === 'PUBLISHED') return VacancyStatus.PUBLISHED;
     if (s === 'DRAFT') return VacancyStatus.DRAFT;
-    return value;
+    return VacancyStatus.DRAFT;
   })
   @IsEnum(VacancyStatus, { message: 'status harus salah satu dari: Published, Draft' })
   status?: VacancyStatus;
@@ -72,13 +82,13 @@ export class CreateVacancyDto {
 
   @ApiPropertyOptional({ example: 'karir@sayangibu.co.id' })
   @IsOptional()
-  @Transform(({ value }) => (value === '' || value === null ? undefined : value))
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() ? value.trim() : undefined))
   @IsEmail()
   contactEmail?: string;
 
   @ApiPropertyOptional({ example: '628123456789' })
   @IsOptional()
-  @Transform(({ value }) => (value === '' || value === null ? undefined : value))
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() ? value.trim() : undefined))
   @IsString()
   @MaxLength(30)
   contactWa?: string;

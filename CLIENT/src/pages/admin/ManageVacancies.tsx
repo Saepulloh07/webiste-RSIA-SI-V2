@@ -9,6 +9,25 @@ import { Search, Plus, Edit, Trash2, Eye, Briefcase, Building, MapPin, Calendar,
 import { useStore, JobVacancy } from "@/store";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { api } from "@/app/api";
+import { alertSuccess, alertError, alertWarning, alertConfirm, extractApiErrorMessage, isValidationError } from "@/utils/alert";
+
+/**
+ * Backend mewajibkan `deadline` berupa string tanggal ISO-8601 (yyyy-mm-dd),
+ * sedangkan sebelumnya field ini adalah input teks bebas dengan placeholder
+ * "Contoh: 30 Nov 2024" — format yang justru SELALU ditolak validasi (422).
+ * Helper ini menormalkan nilai lama (jika ada) supaya tetap bisa ditampilkan
+ * di <input type="date">; jika tidak bisa diparse, dikosongkan saja.
+ */
+function toDateInputValue(value?: string): string {
+  if (!value) return "";
+  // Sudah dalam format yyyy-mm-dd (atau ISO datetime) → ambil bagian tanggalnya saja.
+  if (/^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toISOString().slice(0, 10);
+}
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function ManageVacancies() {
   const [search, setSearch] = useState("");
@@ -16,7 +35,7 @@ export default function ManageVacancies() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  
+
   const role = localStorage.getItem("adminRole") || "Editor";
   const isEditor = role === "Editor";
 
@@ -41,7 +60,7 @@ export default function ManageVacancies() {
   const handleOpenModal = (vacancy?: JobVacancy) => {
     if (vacancy) {
       setEditingId(vacancy.id);
-      setFormData(vacancy);
+      setFormData({ ...vacancy, deadline: toDateInputValue(vacancy.deadline) });
     } else {
       setEditingId(null);
       setFormData({
@@ -62,40 +81,59 @@ export default function ManageVacancies() {
   };
 
   const handleSave = async () => {
-    if (!formData.title || !formData.department) {
-      alert("Mohon lengkapi judul dan departemen.");
+    const title = formData.title?.trim() || "";
+    const department = formData.department?.trim() || "";
+    const description = formData.description?.trim() || "";
+    const requirements = formData.requirements?.trim() || "";
+    const contactEmail = formData.contactEmail?.trim() || "";
+
+    // Validasi sisi klien — field wajib di backend (title, department,
+    // description, requirements) sebelumnya tidak semuanya dicek di sini,
+    // sehingga request dengan salah satunya kosong PASTI ditolak 422.
+    if (!title || !department) {
+      await alertError("Data belum lengkap", "Judul posisi dan departemen wajib diisi.");
+      return;
+    }
+    if (!description) {
+      await alertError("Data belum lengkap", "Deskripsi tanggung jawab pekerjaan wajib diisi.");
+      return;
+    }
+    if (!requirements) {
+      await alertError("Data belum lengkap", "Kriteria & persyaratan pekerjaan wajib diisi.");
+      return;
+    }
+    if (contactEmail && !EMAIL_REGEX.test(contactEmail)) {
+      await alertError("Format email tidak valid", "Periksa kembali alamat email penerima lamaran.");
       return;
     }
 
     setIsSaving(true);
+    // formData.deadline sekarang selalu berasal dari <input type="date">,
+    // sehingga sudah otomatis dalam format ISO (yyyy-mm-dd) yang diwajibkan
+    // backend (@IsDateString()) — tidak perlu lagi transformasi manual.
     const payload = {
-      title: formData.title.trim(),
-      department: formData.department.trim(),
+      title,
+      department,
       type: (formData.type as "Full Time" | "Part Time" | "Kontrak") || "Full Time",
       location: formData.location?.trim() || "Batusangkar",
       experience: formData.experience?.trim() || undefined,
       deadline: formData.deadline?.trim() || undefined,
-      contactEmail: formData.contactEmail?.trim() || undefined,
+      contactEmail: contactEmail || undefined,
       contactWa: formData.contactWa?.trim() || undefined,
       status: (formData.status as "Published" | "Draft") || "Published",
-      description: formData.description?.trim() || "",
-      requirements: formData.requirements?.trim() || "",
+      description,
+      requirements,
     };
 
-    if (editingId) {
-      try {
+    try {
+      if (editingId) {
         const res = await api.vacancies.update(editingId, payload);
         if (res?.data) {
           await fetchVacancies(true);
         } else {
           setVacancies(vacancies.map(v => v.id === editingId ? { ...v, ...payload } as JobVacancy : v));
         }
-      } catch (err) {
-        console.warn("API update vacancy failed, updating locally:", err);
-        setVacancies(vacancies.map(v => v.id === editingId ? { ...v, ...payload } as JobVacancy : v));
-      }
-    } else {
-      try {
+      } else {
         const res = await api.vacancies.create(payload);
         if (res?.data) {
           await fetchVacancies(true);
@@ -107,8 +145,25 @@ export default function ManageVacancies() {
           } as JobVacancy;
           setVacancies([newVacancy, ...vacancies]);
         }
-      } catch (err) {
-        console.warn("API create vacancy failed, adding locally:", err);
+      }
+      setIsSaving(false);
+      setIsModalOpen(false);
+      await alertSuccess(editingId ? "Lowongan berhasil diperbarui" : "Lowongan baru berhasil ditambahkan");
+    } catch (err) {
+      setIsSaving(false);
+
+      if (isValidationError(err)) {
+        // 422 = ditolak validasi backend. Jangan diam-diam disimpan lokal;
+        // biarkan modal terbuka agar admin bisa memperbaiki input sesuai
+        // pesan error per-field yang dikirim server.
+        await alertError("Validasi gagal", extractApiErrorMessage(err, "Periksa kembali data yang Anda masukkan."));
+        return;
+      }
+
+      console.warn(editingId ? "API update vacancy failed, updating locally:" : "API create vacancy failed, adding locally:", err);
+      if (editingId) {
+        setVacancies(vacancies.map(v => v.id === editingId ? { ...v, ...payload } as JobVacancy : v));
+      } else {
         const newVacancy: JobVacancy = {
           id: Date.now().toString(),
           ...payload,
@@ -116,25 +171,36 @@ export default function ManageVacancies() {
         } as JobVacancy;
         setVacancies([newVacancy, ...vacancies]);
       }
+      setIsModalOpen(false);
+      await alertWarning(
+        "Tersimpan sementara di perangkat ini",
+        "Server tidak dapat dihubungi, sehingga data belum tersimpan di database. Periksa koneksi Anda lalu simpan ulang."
+      );
     }
-    setIsSaving(false);
-    setIsModalOpen(false);
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Yakin ingin menghapus lowongan ini?")) {
-      try {
-        await api.vacancies.delete(id);
-        await fetchVacancies(true);
-      } catch (err) {
-        console.warn("API delete vacancy failed, deleting locally:", err);
-      }
+    const confirmed = await alertConfirm(
+      "Hapus lowongan ini?",
+      "Data lowongan yang sudah dihapus tidak dapat dikembalikan.",
+      "Ya, hapus",
+      "Batal"
+    );
+    if (!confirmed) return;
+
+    try {
+      await api.vacancies.delete(id);
+      await fetchVacancies(true);
+      await alertSuccess("Lowongan berhasil dihapus");
+    } catch (err) {
+      console.warn("API delete vacancy failed, deleting locally:", err);
       setVacancies(vacancies.filter(v => v.id !== id));
+      await alertWarning("Terhapus secara lokal", "Server tidak dapat dihubungi. Perubahan hanya tersimpan sementara di perangkat ini.");
     }
   };
 
-  const filteredVacancies = vacancies.filter(v => 
-    v.title.toLowerCase().includes(search.toLowerCase()) || 
+  const filteredVacancies = vacancies.filter(v =>
+    v.title.toLowerCase().includes(search.toLowerCase()) ||
     v.department.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -154,8 +220,8 @@ export default function ManageVacancies() {
         <div className="p-3.5 sm:p-4 border-b border-slate-200/80 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-slate-50/50">
           <div className="relative w-full sm:w-72">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <Input 
-              placeholder="Cari posisi atau divisi..." 
+            <Input
+              placeholder="Cari posisi atau divisi..."
               className="pl-9 h-9.5 bg-white text-sm rounded-xl"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -186,18 +252,18 @@ export default function ManageVacancies() {
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100/70">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="h-8 px-3 text-xs gap-1.5 rounded-lg border-slate-200 text-blue-600 hover:bg-blue-50"
                   onClick={() => handleOpenModal(vacancy)}
                 >
                   <Edit className="w-3.5 h-3.5" />
                   <span>Edit</span>
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   className="h-8 px-3 text-xs gap-1.5 rounded-lg border-slate-200 text-rose-600 hover:bg-rose-50"
                   onClick={() => handleDelete(vacancy.id)}
                 >
@@ -296,20 +362,20 @@ export default function ManageVacancies() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="title" className="text-xs font-semibold text-slate-700">Nama Posisi Lowongan <span className="text-rose-500">*</span></Label>
-                <Input 
+                <Input
                   id="title"
-                  value={formData.title || ""} 
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })} 
+                  value={formData.title || ""}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   placeholder="Contoh: Dokter Umum IGD / Bidan Pelaksana"
                   className="h-10 bg-white font-medium"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="department" className="text-xs font-semibold text-slate-700">Departemen / Instalasi</Label>
-                <Input 
+                <Label htmlFor="department" className="text-xs font-semibold text-slate-700">Departemen / Instalasi <span className="text-rose-500">*</span></Label>
+                <Input
                   id="department"
-                  value={formData.department || ""} 
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })} 
+                  value={formData.department || ""}
+                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                   placeholder="Contoh: Pelayanan Medis / Keperawatan"
                   className="h-10 bg-white"
                 />
@@ -319,7 +385,7 @@ export default function ManageVacancies() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5">
               <div className="space-y-1.5">
                 <Label htmlFor="type" className="text-xs font-semibold text-slate-700">Tipe Kontrak</Label>
-                <select 
+                <select
                   id="type"
                   className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
                   value={formData.type || "Full Time"}
@@ -334,10 +400,10 @@ export default function ManageVacancies() {
               <div className="space-y-1.5">
                 <Label htmlFor="location" className="text-xs font-semibold text-slate-700">Lokasi Kerja</Label>
                 <div className="relative">
-                  <Input 
+                  <Input
                     id="location"
-                    value={formData.location || ""} 
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })} 
+                    value={formData.location || ""}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                     placeholder="Batusangkar"
                     className="h-10 bg-white pr-8"
                   />
@@ -347,7 +413,7 @@ export default function ManageVacancies() {
 
               <div className="space-y-1.5">
                 <Label htmlFor="status" className="text-xs font-semibold text-slate-700">Status Publikasi</Label>
-                <select 
+                <select
                   id="status"
                   className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 disabled:opacity-50 disabled:bg-slate-100"
                   value={formData.status || "Draft"}
@@ -362,11 +428,11 @@ export default function ManageVacancies() {
               <div className="space-y-1.5">
                 <Label htmlFor="deadline" className="text-xs font-semibold text-slate-700">Batas Akhir (Deadline)</Label>
                 <div className="relative">
-                  <Input 
+                  <Input
                     id="deadline"
-                    value={formData.deadline || ""} 
-                    onChange={(e) => setFormData({ ...formData, deadline: e.target.value })} 
-                    placeholder="Contoh: 30 Nov 2024"
+                    type="date"
+                    value={formData.deadline || ""}
+                    onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
                     className="h-10 bg-white pr-8"
                   />
                   <Calendar className="w-4 h-4 text-slate-400 absolute right-2.5 top-3 pointer-events-none" />
@@ -385,10 +451,10 @@ export default function ManageVacancies() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
               <div className="space-y-1.5">
                 <Label htmlFor="experience" className="text-xs font-semibold text-slate-700">Kualifikasi Singkat</Label>
-                <Input 
+                <Input
                   id="experience"
-                  value={formData.experience || ""} 
-                  onChange={(e) => setFormData({ ...formData, experience: e.target.value })} 
+                  value={formData.experience || ""}
+                  onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
                   placeholder="Min. 1 Thn / Fresh Graduate"
                   className="h-10 bg-white"
                 />
@@ -397,10 +463,11 @@ export default function ManageVacancies() {
               <div className="space-y-1.5">
                 <Label htmlFor="contactEmail" className="text-xs font-semibold text-slate-700">Email Kirim Berkas</Label>
                 <div className="relative">
-                  <Input 
+                  <Input
                     id="contactEmail"
-                    value={formData.contactEmail || ""} 
-                    onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })} 
+                    type="email"
+                    value={formData.contactEmail || ""}
+                    onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
                     placeholder="karir@sayangibu.co.id"
                     className="h-10 bg-white pr-8"
                   />
@@ -411,10 +478,10 @@ export default function ManageVacancies() {
               <div className="space-y-1.5">
                 <Label htmlFor="contactWa" className="text-xs font-semibold text-slate-700">WhatsApp HRD (Opsional)</Label>
                 <div className="relative">
-                  <Input 
+                  <Input
                     id="contactWa"
-                    value={formData.contactWa || ""} 
-                    onChange={(e) => setFormData({ ...formData, contactWa: e.target.value })} 
+                    value={formData.contactWa || ""}
+                    onChange={(e) => setFormData({ ...formData, contactWa: e.target.value })}
                     placeholder="+6281123456789"
                     className="h-10 bg-white pr-8"
                   />
@@ -429,15 +496,15 @@ export default function ManageVacancies() {
             <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 text-slate-800 font-semibold text-sm">
               <div className="flex items-center gap-2">
                 <FileCheck className="w-4 h-4 text-amber-600" />
-                <span>Deskripsi Tanggung Jawab & Uraian Pekerjaan</span>
+                <span>Deskripsi Tanggung Jawab & Uraian Pekerjaan <span className="text-rose-500">*</span></span>
               </div>
               <span className="text-[11px] text-slate-400">Rincian tugas harian</span>
             </div>
 
             <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-2xs">
-              <RichTextEditor 
-                content={formData.description || ""} 
-                onChange={(content) => setFormData({ ...formData, description: content })} 
+              <RichTextEditor
+                content={formData.description || ""}
+                onChange={(content) => setFormData({ ...formData, description: content })}
               />
             </div>
           </div>
@@ -447,15 +514,15 @@ export default function ManageVacancies() {
             <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 text-slate-800 font-semibold text-sm">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Kriteria, Pendidikan & Berkas Persyaratan</span>
+                <span>Kriteria, Pendidikan & Berkas Persyaratan <span className="text-rose-500">*</span></span>
               </div>
               <span className="text-[11px] text-slate-400">STR aktif, ijazah, sertifikat</span>
             </div>
 
             <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-2xs">
-              <RichTextEditor 
-                content={formData.requirements || ""} 
-                onChange={(content) => setFormData({ ...formData, requirements: content })} 
+              <RichTextEditor
+                content={formData.requirements || ""}
+                onChange={(content) => setFormData({ ...formData, requirements: content })}
               />
             </div>
           </div>

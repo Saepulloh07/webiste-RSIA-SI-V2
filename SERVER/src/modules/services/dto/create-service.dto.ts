@@ -8,8 +8,21 @@ const STATUS_LABEL_MAP: Record<string, ServiceStatus> = {
   aktif: ServiceStatus.AKTIF,
   nonaktif: ServiceStatus.NONAKTIF,
 };
-const normalizeServiceStatus = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? (STATUS_LABEL_MAP[value.toLowerCase()] ?? value) : value;
+const normalizeServiceStatus = ({ value }: { value: unknown }) => {
+  if (value === '' || value === null || value === undefined) return ServiceStatus.AKTIF;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return ServiceStatus.AKTIF;
+    const lower = trimmed.toLowerCase();
+    if (STATUS_LABEL_MAP[lower]) return STATUS_LABEL_MAP[lower];
+    if (lower === 'aktif') return ServiceStatus.AKTIF;
+    if (lower === 'nonaktif') return ServiceStatus.NONAKTIF;
+    if (Object.values(ServiceStatus).includes(trimmed as ServiceStatus)) {
+      return trimmed as ServiceStatus;
+    }
+  }
+  return value;
+};
 
 export class CreateServiceDto {
   @ApiProperty({ example: 'Laboratorium 24 Jam' })
@@ -37,17 +50,34 @@ export class CreateServiceDto {
 
   @ApiPropertyOptional({ example: 'https://storage.sayangibu.co.id/services/lab.jpg' })
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() ? value.trim() : undefined))
   @IsString()
   image?: string;
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (!value) return undefined;
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) return parsed.map((s) => String(s).trim()).filter(Boolean);
+      } catch {
+        return value.split('\n').map((s) => s.trim()).filter(Boolean);
+      }
+    }
+    if (Array.isArray(value)) {
+      return value.map((s) => String(s).trim()).filter(Boolean);
+    }
+    return undefined;
+  })
   @IsArray()
   @IsString({ each: true })
   facilities?: string[];
 
   @ApiPropertyOptional({ example: '24 Jam Penuh Setiap Hari' })
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() ? value.trim() : undefined))
   @IsString()
   @MaxLength(150)
   operationalHours?: string;

@@ -10,6 +10,7 @@ import { useStore, Article } from "@/store";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { api, normalizeRole } from "@/app/api";
+import { alertSuccess, alertError, alertWarning, alertConfirm, extractApiErrorMessage, isValidationError } from "@/utils/alert";
 
 export default function ManageArticles() {
   const [search, setSearch] = useState("");
@@ -30,14 +31,17 @@ export default function ManageArticles() {
   const handleOpenModal = (article?: Article) => {
     if (article) {
       setEditingArticle(article);
-      setFormData(article);
+      setFormData({
+        ...article,
+        status: isEditor ? "Draft" : article.status,
+      });
       setTagsText(article.tags ? article.tags.join(", ") : "");
     } else {
       setEditingArticle(null);
       setFormData({
         title: "",
         category: "Kebidanan & Kandungan",
-        status: isEditor ? "Draft" : "Published",
+        status: "Draft",
         author: "Tim Redaksi Medis RSIA Sayang Ibu",
         date: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
         content: ""
@@ -48,6 +52,19 @@ export default function ManageArticles() {
   };
 
   const handleSave = async () => {
+    const title = formData.title?.trim() || "";
+    const category = formData.category || "Kebidanan & Kandungan";
+    const content = formData.content?.trim() || "";
+
+    if (!title) {
+      await alertError("Data belum lengkap", "Judul artikel medis wajib diisi.");
+      return;
+    }
+    if (!content || content === "<p></p>") {
+      await alertError("Data belum lengkap", "Konten isi artikel tidak boleh kosong.");
+      return;
+    }
+
     setIsSaving(true);
     const parsedTags = tagsText
       .split(",")
@@ -55,29 +72,24 @@ export default function ManageArticles() {
       .filter((t) => t.length > 0);
 
     const payload = {
-      title: formData.title?.trim() || "",
-      category: formData.category || "Kebidanan & Kandungan",
-      status: (formData.status as "Published" | "Draft") || "Published",
+      title,
+      category,
+      status: isEditor ? "Draft" : ((formData.status as "Published" | "Draft") || "Draft"),
       author: formData.author?.trim() || "Tim Redaksi Medis RSIA Sayang Ibu",
-      content: formData.content?.trim() || "<p></p>",
+      content,
       image: formData.image?.trim() || undefined,
       tags: parsedTags.length > 0 ? parsedTags : undefined,
     };
 
-    if (editingArticle) {
-      try {
+    try {
+      if (editingArticle) {
         const res = await api.articles.update(editingArticle.id, payload);
         if (res?.data) {
           await fetchArticles(true);
         } else {
           setArticles(articles.map((a) => (a.id === editingArticle.id ? { ...a, ...payload } as Article : a)));
         }
-      } catch (err) {
-        console.warn("API update article failed, updating store locally:", err);
-        setArticles(articles.map((a) => (a.id === editingArticle.id ? { ...a, ...payload } as Article : a)));
-      }
-    } else {
-      try {
+      } else {
         const res = await api.articles.create(payload);
         if (res?.data) {
           await fetchArticles(true);
@@ -89,8 +101,22 @@ export default function ManageArticles() {
           } as Article;
           setArticles([newArticle, ...articles]);
         }
-      } catch (err) {
-        console.warn("API create article failed, adding to store locally:", err);
+      }
+      setIsSaving(false);
+      setIsModalOpen(false);
+      await alertSuccess(editingArticle ? "Artikel berhasil diperbarui" : "Artikel baru berhasil ditambahkan");
+    } catch (err) {
+      setIsSaving(false);
+
+      if (isValidationError(err)) {
+        await alertError("Validasi gagal", extractApiErrorMessage(err, "Periksa kembali kelengkapan form artikel Anda."));
+        return;
+      }
+
+      console.warn("API article operation failed, fallback local update:", err);
+      if (editingArticle) {
+        setArticles(articles.map((a) => (a.id === editingArticle.id ? { ...a, ...payload } as Article : a)));
+      } else {
         const newArticle: Article = {
           ...payload,
           id: Date.now().toString(),
@@ -98,20 +124,31 @@ export default function ManageArticles() {
         } as Article;
         setArticles([newArticle, ...articles]);
       }
+      setIsModalOpen(false);
+      await alertWarning(
+        "Tersimpan sementara di perangkat ini",
+        "Server tidak dapat dihubungi. Data tersimpan di memori browser Anda."
+      );
     }
-    setIsSaving(false);
-    setIsModalOpen(false);
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Apakah Anda yakin ingin menghapus artikel ini?")) {
-      try {
-        await api.articles.delete(id);
-        await fetchArticles(true);
-      } catch (err) {
-        console.warn("API delete article failed, deleting locally:", err);
-        setArticles(articles.filter((a) => a.id !== id));
-      }
+    const confirmed = await alertConfirm(
+      "Hapus artikel ini?",
+      "Artikel yang dihapus tidak akan dapat dipulihkan kembali.",
+      "Ya, hapus",
+      "Batal"
+    );
+    if (!confirmed) return;
+
+    try {
+      await api.articles.delete(id);
+      await fetchArticles(true);
+      await alertSuccess("Artikel berhasil dihapus");
+    } catch (err) {
+      console.warn("API delete article failed, deleting locally:", err);
+      setArticles(articles.filter((a) => a.id !== id));
+      await alertWarning("Terhapus secara lokal", "Server tidak dapat dihubungi. Penghapusan tersimpan sementara di perangkat ini.");
     }
   };
 

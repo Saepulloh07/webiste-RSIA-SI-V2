@@ -9,6 +9,7 @@ import { Search, Plus, Edit, Trash2, Stethoscope, Calendar, GraduationCap, UserC
 import { useStore, Doctor } from "@/store";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { api } from "@/app/api";
+import { alertSuccess, alertError, alertWarning, alertConfirm, extractApiErrorMessage, isValidationError } from "@/utils/alert";
 
 export default function ManageDoctors() {
   const [search, setSearch] = useState("");
@@ -47,6 +48,19 @@ export default function ManageDoctors() {
   };
 
   const handleSave = async () => {
+    const name = formData.name?.trim() || "";
+    const specialty = formData.specialty || "Kandungan";
+    const schedule = formData.schedule?.trim() || "";
+
+    if (!name) {
+      await alertError("Data belum lengkap", "Nama dokter wajib diisi.");
+      return;
+    }
+    if (!schedule) {
+      await alertError("Data belum lengkap", "Jadwal praktik dokter wajib diisi.");
+      return;
+    }
+
     setIsSaving(true);
     const parsedEducation = educationText
       .split("\n")
@@ -54,11 +68,11 @@ export default function ManageDoctors() {
       .filter(line => line.length > 0);
 
     const payload = {
-      name: formData.name?.trim() || "",
-      specialty: formData.specialty || "Kandungan",
+      name,
+      specialty,
       subspecialty: formData.subspecialty?.trim() || undefined,
       status: formData.status || "Aktif",
-      schedule: formData.schedule?.trim() || "",
+      schedule,
       image: formData.image?.trim() || undefined,
       sipNumber: formData.sipNumber?.trim() || undefined,
       poliklinik: formData.poliklinik?.trim() || undefined,
@@ -66,44 +80,64 @@ export default function ManageDoctors() {
       education: parsedEducation.length > 0 ? parsedEducation : undefined,
     };
 
-    if (editingDoctor) {
-      try {
+    try {
+      if (editingDoctor) {
         const res = await api.doctors.update(editingDoctor.id, payload);
         if (res?.data) {
           await fetchDoctors();
         } else {
           setDoctors(doctors.map((d) => (d.id === editingDoctor.id ? { ...d, ...payload } as Doctor : d)));
         }
-      } catch (err) {
-        console.warn("API update doctor failed, updating store locally:", err);
-        setDoctors(doctors.map((d) => (d.id === editingDoctor.id ? { ...d, ...payload } as Doctor : d)));
-      }
-    } else {
-      try {
+      } else {
         const res = await api.doctors.create(payload);
         if (res?.data) {
           await fetchDoctors();
         } else {
           setDoctors([{ ...payload, id: Date.now().toString() } as Doctor, ...doctors]);
         }
-      } catch (err) {
-        console.warn("API create doctor failed, adding to store locally:", err);
+      }
+      setIsSaving(false);
+      setIsModalOpen(false);
+      await alertSuccess(editingDoctor ? "Data dokter berhasil diperbarui" : "Dokter baru berhasil ditambahkan");
+    } catch (err) {
+      setIsSaving(false);
+
+      if (isValidationError(err)) {
+        await alertError("Validasi gagal", extractApiErrorMessage(err, "Periksa kembali kelengkapan data dokter."));
+        return;
+      }
+
+      console.warn("API doctor operation failed, updating store locally:", err);
+      if (editingDoctor) {
+        setDoctors(doctors.map((d) => (d.id === editingDoctor.id ? { ...d, ...payload } as Doctor : d)));
+      } else {
         setDoctors([{ ...payload, id: Date.now().toString() } as Doctor, ...doctors]);
       }
+      setIsModalOpen(false);
+      await alertWarning(
+        "Tersimpan sementara di perangkat ini",
+        "Server tidak dapat dihubungi. Data dokter tersimpan sementara secara lokal."
+      );
     }
-    setIsSaving(false);
-    setIsModalOpen(false);
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Apakah Anda yakin ingin menghapus dokter ini dari direktori?")) {
-      try {
-        await api.doctors.delete(id);
-        await fetchDoctors();
-      } catch (err) {
-        console.warn("API delete doctor failed, deleting locally:", err);
-        setDoctors(doctors.filter((d) => d.id !== id));
-      }
+    const confirmed = await alertConfirm(
+      "Hapus dokter ini?",
+      "Data dokter akan dihapus dari direktori tenaga medis.",
+      "Ya, hapus",
+      "Batal"
+    );
+    if (!confirmed) return;
+
+    try {
+      await api.doctors.delete(id);
+      await fetchDoctors();
+      await alertSuccess("Dokter berhasil dihapus");
+    } catch (err) {
+      console.warn("API delete doctor failed, deleting locally:", err);
+      setDoctors(doctors.filter((d) => d.id !== id));
+      await alertWarning("Terhapus secara lokal", "Server tidak dapat dihubungi. Perubahan disimpan sementara.");
     }
   };
 

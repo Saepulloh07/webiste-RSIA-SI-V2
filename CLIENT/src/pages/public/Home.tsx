@@ -1,9 +1,11 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   ArrowRight, Stethoscope, Clock, ShieldCheck,
   Activity, Baby, HeartPulse, MapPin,
-  Phone, Mail, Calendar, Play, Sparkles, Tag, Gift
+  Phone, Mail, Calendar, Play, Sparkles, Tag, Gift,
+  ChevronLeft, ChevronRight
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useStore } from "@/store";
@@ -11,16 +13,54 @@ import { MediaWatermark } from "@/components/common/MediaWatermark";
 import { DoctorCard } from "@/components/cards/DoctorCard";
 import { SEOHead } from "@/components/common/SEOHead";
 
+const DEFAULT_HERO_IMAGE = "https://images.unsplash.com/photo-1538108149393-fbbd81895907?q=80&w=1000&auto=format&fit=crop";
+const HERO_SLIDE_INTERVAL_MS = 5000;
+
 export default function Home() {
-  const { articles, settings, media, services, doctors, ads } = useStore();
+  const { articles, settings, media, services, doctors, ads, fetchSettings, fetchMedia } = useStore();
+
+  useEffect(() => {
+    fetchSettings();
+    fetchMedia();
+  }, [fetchSettings, fetchMedia]);
   const publishedArticles = articles.filter(a => a.status === 'Published').slice(0, 3);
   const activeDoctors = doctors.filter(d => d.status === 'Aktif').slice(0, 4);
   const displayServices = (services || []).filter(s => s.status === 'Aktif').slice(0, 3);
   const activeAds = (ads || []).filter(a => a.status === 'Aktif');
 
-  const heroImage = media.find(m => m.type === 'website_image' && m.name === 'hero-banner') ||
-    media.find(m => m.type === 'website_image') ||
-    { url: 'https://images.unsplash.com/photo-1538108149393-fbbd81895907?q=80&w=1000&auto=format&fit=crop' };
+  // Gambar hero beranda kini berupa SLIDESHOW yang diatur langsung dari CMS
+  // (Pengaturan Web → Slideshow Beranda). Admin mengunggah gambar dengan tipe
+  // media "slideshow" (juga tersedia lewat Media Library), lalu gambar-gambar
+  // tersebut otomatis tampil bergantian di sini. Jika belum ada satupun gambar
+  // slideshow yang diatur, fallback ke gambar banner tunggal ("hero-banner")
+  // seperti sebelumnya, lalu ke gambar default jika benar-benar tidak ada.
+  const heroImages = useMemo(() => {
+    const slideshowImages = media
+      .filter(m => m.type === 'slideshow' && !!m.url)
+      .map(m => m.url);
+    if (slideshowImages.length > 0) return slideshowImages;
+
+    const singleBanner =
+      media.find(m => m.type === 'website_image' && m.name === 'hero-banner') ||
+      media.find(m => m.type === 'website_image');
+    return [singleBanner?.url || DEFAULT_HERO_IMAGE];
+  }, [media]);
+
+  const [activeSlide, setActiveSlide] = useState(0);
+
+  // Reset ke slide pertama setiap kali daftar gambar berubah (mis. admin baru
+  // saja menambah/menghapus gambar slideshow) agar tidak out-of-range.
+  useEffect(() => {
+    setActiveSlide(0);
+  }, [heroImages.length]);
+
+  useEffect(() => {
+    if (heroImages.length <= 1) return; // tidak perlu auto-slide jika cuma 1 gambar
+    const timer = setInterval(() => {
+      setActiveSlide((prev) => (prev + 1) % heroImages.length);
+    }, HERO_SLIDE_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [heroImages.length]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -69,6 +109,15 @@ export default function Home() {
                 <Sparkles className="w-3.5 h-3.5 text-amber-500 ml-0.5" />
               </div>
 
+              {/* Deskripsi Singkat (Slogan) */}
+              <div className="mb-3 md:mb-4">
+                <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-rose-100/90 via-amber-100/70 to-rose-50/90 border border-rose-200/80 text-primary font-semibold text-xs sm:text-sm tracking-wide shadow-2xs">
+                  <span className="text-amber-600 text-sm font-serif">“</span>
+                  <span>{settings.slogan || "Sahabat Terbaik Menuju Generasi Sehat & Bahagia"}</span>
+                  <span className="text-amber-600 text-sm font-serif">”</span>
+                </span>
+              </div>
+
               <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold font-heading leading-[1.15] mb-4 md:mb-6 text-slate-900 tracking-tight">
                 Pelayanan Medis <br className="hidden sm:block" />
                 <span className="bg-gradient-to-r from-primary via-amber-600 to-primary bg-clip-text text-transparent italic font-serif">
@@ -113,17 +162,65 @@ export default function Home() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
-              className="relative mx-auto lg:ml-auto w-full max-w-[320px] sm:max-w-md lg:max-w-none aspect-[4/5] lg:aspect-square mt-6 lg:mt-0"
+              className="relative mx-auto lg:ml-auto w-full max-w-[320px] sm:max-w-md lg:max-w-none aspect-[4/5] lg:aspect-square mt-6 lg:mt-0 group"
             >
               <div className="absolute inset-0 bg-gradient-to-tr from-rose-100 to-amber-100 rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white relative z-10 flex items-center justify-center">
-                <img
-                  src={heroImage.url}
-                  alt="RSIA Sayang Ibu"
-                  loading="eager"
-                  decoding="async"
-                  className="w-full h-full object-cover"
-                />
+                {/* Slideshow gambar Beranda — gambar diatur dari CMS (Pengaturan
+                    Web → Slideshow Beranda / Media Library, tipe "slideshow").
+                    Beberapa gambar ditumpuk lalu di-crossfade otomatis. */}
+                <AnimatePresence initial={false}>
+                  <motion.img
+                    key={heroImages[activeSlide]}
+                    src={heroImages[activeSlide]}
+                    alt="RSIA Sayang Ibu"
+                    loading="eager"
+                    decoding="async"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.9, ease: "easeInOut" }}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                </AnimatePresence>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10 pointer-events-none"></div>
+
+                {/* Tombol navigasi panah manual kiri/kanan */}
+                {heroImages.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Gambar sebelumnya"
+                      onClick={() => setActiveSlide((prev) => (prev - 1 + heroImages.length) % heroImages.length)}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white/80 hover:bg-white text-slate-800 flex items-center justify-center backdrop-blur-md shadow-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Gambar selanjutnya"
+                      onClick={() => setActiveSlide((prev) => (prev + 1) % heroImages.length)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-white/80 hover:bg-white text-slate-800 flex items-center justify-center backdrop-blur-md shadow-md opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
+
+                {/* Indikator titik slideshow — hanya tampil jika lebih dari 1 gambar */}
+                {heroImages.length > 1 && (
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5">
+                    {heroImages.map((src, idx) => (
+                      <button
+                        key={src + idx}
+                        type="button"
+                        aria-label={`Tampilkan gambar ke-${idx + 1}`}
+                        onClick={() => setActiveSlide(idx)}
+                        className={`h-1.5 rounded-full transition-all duration-300 ${idx === activeSlide ? "w-6 bg-white" : "w-1.5 bg-white/60 hover:bg-white/80"
+                          }`}
+                      />
+                    ))}
+                  </div>
+                )}
 
                 {/* Proportional Logo Watermark */}
                 <MediaWatermark size="lg" />
@@ -264,54 +361,54 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-            {displayServices.map((service, index) => {
-              const borderColors = [
-                "hover:border-rose-300",
-                "hover:border-amber-300",
-                "hover:border-emerald-300"
-              ];
-              const badgeColors = [
-                "text-primary bg-rose-50",
-                "text-amber-700 bg-amber-50",
-                "text-emerald-700 bg-emerald-50"
-              ];
-              return (
-                <div
-                  key={service.id || index}
-                  className={`group bg-white p-5 rounded-3xl shadow-sm border border-slate-100 ${borderColors[index % 3]} hover:shadow-xl transition-all duration-300 flex flex-col justify-between`}
-                >
-                  <div>
-                    <div className="aspect-[16/10] bg-gradient-to-tr from-rose-50 to-amber-50 rounded-2xl overflow-hidden mb-5 relative flex items-center justify-center">
-                      {index === 0 && <HeartPulse className="w-16 h-16 text-primary/30" />}
-                      {index === 1 && <Baby className="w-16 h-16 text-amber-600/30" />}
-                      {index === 2 && <Activity className="w-16 h-16 text-emerald-600/30" />}
+              {displayServices.map((service, index) => {
+                const borderColors = [
+                  "hover:border-rose-300",
+                  "hover:border-amber-300",
+                  "hover:border-emerald-300"
+                ];
+                const badgeColors = [
+                  "text-primary bg-rose-50",
+                  "text-amber-700 bg-amber-50",
+                  "text-emerald-700 bg-emerald-50"
+                ];
+                return (
+                  <div
+                    key={service.id || index}
+                    className={`group bg-white p-5 rounded-3xl shadow-sm border border-slate-100 ${borderColors[index % 3]} hover:shadow-xl transition-all duration-300 flex flex-col justify-between`}
+                  >
+                    <div>
+                      <div className="aspect-[16/10] bg-gradient-to-tr from-rose-50 to-amber-50 rounded-2xl overflow-hidden mb-5 relative flex items-center justify-center">
+                        {index === 0 && <HeartPulse className="w-16 h-16 text-primary/30" />}
+                        {index === 1 && <Baby className="w-16 h-16 text-amber-600/30" />}
+                        {index === 2 && <Activity className="w-16 h-16 text-emerald-600/30" />}
 
-                      <div className={`absolute top-3 left-3 w-10 h-10 rounded-xl shadow-sm flex items-center justify-center ${badgeColors[index % 3]} z-10`}>
-                        {index === 0 && <HeartPulse className="w-5 h-5" />}
-                        {index === 1 && <Baby className="w-5 h-5" />}
-                        {index === 2 && <Activity className="w-5 h-5" />}
+                        <div className={`absolute top-3 left-3 w-10 h-10 rounded-xl shadow-sm flex items-center justify-center ${badgeColors[index % 3]} z-10`}>
+                          {index === 0 && <HeartPulse className="w-5 h-5" />}
+                          {index === 1 && <Baby className="w-5 h-5" />}
+                          {index === 2 && <Activity className="w-5 h-5" />}
+                        </div>
+
+                        {/* Proportional Watermark */}
+                        <MediaWatermark size="sm" />
                       </div>
 
-                      {/* Proportional Watermark */}
-                      <MediaWatermark size="sm" />
+                      <h4 className="text-lg md:text-xl font-bold font-heading text-slate-900 mb-2 group-hover:text-primary transition-colors">
+                        {service.name}
+                      </h4>
+                      <p className="text-slate-600 text-xs md:text-sm leading-relaxed mb-4">
+                        {service.description || "Layanan terpadu dengan standar medis tertinggi untuk pasien."}
+                      </p>
                     </div>
 
-                    <h4 className="text-lg md:text-xl font-bold font-heading text-slate-900 mb-2 group-hover:text-primary transition-colors">
-                      {service.name}
-                    </h4>
-                    <p className="text-slate-600 text-xs md:text-sm leading-relaxed mb-4">
-                      {service.description || "Layanan terpadu dengan standar medis tertinggi untuk pasien."}
-                    </p>
+                    <div className="pt-2 border-t border-slate-100">
+                      <Link to={`/layanan/${service.slug || service.id}`} className="inline-flex items-center text-primary font-bold hover:text-amber-700 transition-colors text-xs md:text-sm">
+                        Detail Layanan <ArrowRight className="w-3.5 h-3.5 ml-1.5 group-hover:translate-x-1 transition-transform" />
+                      </Link>
+                    </div>
                   </div>
-
-                  <div className="pt-2 border-t border-slate-100">
-                    <Link to={`/layanan/${service.slug || service.id}`} className="inline-flex items-center text-primary font-bold hover:text-amber-700 transition-colors text-xs md:text-sm">
-                      Detail Layanan <ArrowRight className="w-3.5 h-3.5 ml-1.5 group-hover:translate-x-1 transition-transform" />
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
             </div>
           )}
         </div>
@@ -526,5 +623,3 @@ export default function Home() {
     </div>
   );
 }
-
-

@@ -22,7 +22,7 @@ export default function ServiceDetail() {
         .then((res) => {
           if (res?.data) setFetchedService(res.data);
         })
-        .catch(() => {})
+        .catch(() => { })
         .finally(() => setIsLoading(false));
     }
   }, [services, slug]);
@@ -93,8 +93,8 @@ export default function ServiceDetail() {
     ];
   };
 
-  const facilities = (service.facilities && service.facilities.length > 0) 
-    ? service.facilities 
+  const facilities = (service.facilities && service.facilities.length > 0)
+    ? service.facilities
     : getServiceFacilities(service.name);
 
   return (
@@ -135,15 +135,15 @@ export default function ServiceDetail() {
         {/* Service Hero Image with Watermark */}
         {service.image && (
           <div className="mb-8 rounded-3xl overflow-hidden shadow-2xl border-4 border-white aspect-[21/9] md:aspect-[24/9] relative bg-slate-100">
-            <img 
-              src={service.image} 
+            <img
+              src={service.image}
               alt={service.name}
               loading="lazy"
               decoding="async"
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-            
+
             {/* Proportional Watermark */}
             <MediaWatermark size="md" />
 
@@ -155,7 +155,7 @@ export default function ServiceDetail() {
         )}
 
         <div className="bg-white rounded-3xl p-6 md:p-10 shadow-xl border border-amber-100 flex flex-col md:flex-row gap-8 md:gap-12">
-          
+
           {/* Facilities List */}
           <div className="flex-1">
             <h3 className="text-xl font-bold font-heading text-slate-900 mb-6 flex items-center gap-2">
@@ -185,8 +185,8 @@ export default function ServiceDetail() {
             <ul className="space-y-3 mb-8">
               {relatedDoctors.slice(0, 3).map((doc) => (
                 <li key={doc.id}>
-                  <Link 
-                    to={`/dokter/${doc.slug || doc.id}`} 
+                  <Link
+                    to={`/dokter/${doc.slug || doc.id}`}
                     className="flex items-center justify-between p-3.5 rounded-2xl bg-white hover:bg-rose-50/50 transition-all border border-amber-100 hover:border-amber-300 group shadow-sm"
                   >
                     <div className="flex items-center gap-3">
@@ -214,8 +214,8 @@ export default function ServiceDetail() {
               <p className="text-xs md:text-sm text-slate-600 mb-5 leading-relaxed">
                 Pilih dokter spesialis dan waktu konsultasi secara fleksibel melalui sistem pendaftaran online {settings.hospitalName || "RSIA Sayang Ibu"}.
               </p>
-              <Link 
-                to="/pendaftaran" 
+              <Link
+                to="/pendaftaran"
                 className="flex items-center justify-center w-full bg-gradient-to-r from-primary to-amber-600 text-white py-3 rounded-xl font-bold text-sm hover:from-primary/90 hover:to-amber-600/90 transition-all shadow-md shadow-primary/20"
               >
                 Daftar Janji Temu Sekarang

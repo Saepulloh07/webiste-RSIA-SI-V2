@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useStore, UserAdmin } from "@/store";
 import { api } from "@/app/api";
+import { alertSuccess, alertError, alertWarning, alertConfirm, extractApiErrorMessage, isValidationError } from "@/utils/alert";
 
 export default function ManageUsers() {
   const { users, setUsers, fetchUsers } = useStore();
@@ -38,30 +39,42 @@ export default function ManageUsers() {
   };
 
   const handleSave = async () => {
+    const name = formData.name?.trim() || "";
+    const email = formData.email?.trim() || "";
+    const role = formData.role || "Editor";
+
+    if (!name) {
+      await alertError("Data belum lengkap", "Nama pengguna wajib diisi.");
+      return;
+    }
+    if (!email) {
+      await alertError("Data belum lengkap", "Email pengguna wajib diisi.");
+      return;
+    }
+    if (!editingUser && !password) {
+      await alertError("Data belum lengkap", "Password wajib diisi untuk pengguna baru.");
+      return;
+    }
+
     setIsSaving(true);
     const payload: any = {
-      name: formData.name || "",
-      email: formData.email || "",
-      role: formData.role || "Editor",
+      name,
+      email,
+      role,
     };
     if (password) {
       payload.password = password;
     }
 
-    if (editingUser) {
-      try {
+    try {
+      if (editingUser) {
         const res = await api.users.update(editingUser.id, payload);
         if (res?.data) {
           await fetchUsers();
         } else {
           setUsers(users.map((u) => (u.id === editingUser.id ? { ...u, ...formData } as UserAdmin : u)));
         }
-      } catch (err) {
-        console.warn("API update user failed, updating locally:", err);
-        setUsers(users.map((u) => (u.id === editingUser.id ? { ...u, ...formData } as UserAdmin : u)));
-      }
-    } else {
-      try {
+      } else {
         const res = await api.users.create({
           ...payload,
           password: password || "Password123!",
@@ -71,24 +84,49 @@ export default function ManageUsers() {
         } else {
           setUsers([...users, { ...formData, id: Date.now().toString() } as UserAdmin]);
         }
-      } catch (err) {
-        console.warn("API create user failed, adding locally:", err);
+      }
+      setIsSaving(false);
+      setIsModalOpen(false);
+      await alertSuccess(editingUser ? "Pengguna berhasil diperbarui" : "Pengguna baru berhasil ditambahkan");
+    } catch (err) {
+      setIsSaving(false);
+
+      if (isValidationError(err)) {
+        await alertError("Validasi gagal", extractApiErrorMessage(err, "Periksa kembali format email dan password."));
+        return;
+      }
+
+      console.warn("API user operation failed, updating locally:", err);
+      if (editingUser) {
+        setUsers(users.map((u) => (u.id === editingUser.id ? { ...u, ...formData } as UserAdmin : u)));
+      } else {
         setUsers([...users, { ...formData, id: Date.now().toString() } as UserAdmin]);
       }
+      setIsModalOpen(false);
+      await alertWarning(
+        "Tersimpan sementara di perangkat ini",
+        "Server tidak dapat dihubungi. Perubahan disimpan di browser."
+      );
     }
-    setIsSaving(false);
-    setIsModalOpen(false);
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Apakah Anda yakin ingin menghapus pengguna CMS ini?")) {
-      try {
-        await api.users.delete(id);
-        await fetchUsers();
-      } catch (err) {
-        console.warn("API delete user failed, deleting locally:", err);
-        setUsers(users.filter((u) => u.id !== id));
-      }
+    const confirmed = await alertConfirm(
+      "Hapus pengguna ini?",
+      "Akun ini tidak akan dapat login lagi ke sistem CMS.",
+      "Ya, hapus",
+      "Batal"
+    );
+    if (!confirmed) return;
+
+    try {
+      await api.users.delete(id);
+      await fetchUsers();
+      await alertSuccess("Pengguna berhasil dihapus");
+    } catch (err) {
+      console.warn("API delete user failed, deleting locally:", err);
+      setUsers(users.filter((u) => u.id !== id));
+      await alertWarning("Terhapus lokal", "Server tidak dapat dihubungi. Perubahan disimpan sementara.");
     }
   };
 

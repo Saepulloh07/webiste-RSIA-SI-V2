@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { useStore, AdCampaign } from "@/store";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { api, normalizeRole } from "@/app/api";
+import { alertSuccess, alertError, alertWarning, alertConfirm, extractApiErrorMessage, isValidationError } from "@/utils/alert";
 
 export default function ManageAds() {
   const { ads, setAds, fetchAds } = useStore();
@@ -29,7 +30,10 @@ export default function ManageAds() {
   const handleOpenModal = (ad?: AdCampaign) => {
     if (ad) {
       setEditingAd(ad);
-      setFormData(ad);
+      setFormData({
+        ...ad,
+        status: isEditor ? "Draft" : ad.status,
+      });
       setHighlightsText(ad.highlights ? ad.highlights.join("\n") : "");
     } else {
       setEditingAd(null);
@@ -41,7 +45,7 @@ export default function ManageAds() {
         originalPrice: "",
         startDate: new Date().toISOString().split("T")[0],
         endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-        status: isEditor ? "Draft" : "Aktif",
+        status: "Draft",
         content: "",
         targetKeywords: "",
         contactWa: ""
@@ -52,6 +56,12 @@ export default function ManageAds() {
   };
 
   const handleSave = async () => {
+    const title = formData.title?.trim() || "";
+    if (!title) {
+      await alertError("Data belum lengkap", "Judul iklan/promo wajib diisi.");
+      return;
+    }
+
     setIsSaving(true);
     const parsedHighlights = highlightsText
       .split("\n")
@@ -59,13 +69,13 @@ export default function ManageAds() {
       .filter((line) => line.length > 0);
 
     const payload = {
-      title: formData.title?.trim() || "",
+      title,
       badge: formData.badge?.trim() || "Promo Spesial",
       price: formData.price?.trim() || undefined,
       originalPrice: formData.originalPrice?.trim() || undefined,
       startDate: formData.startDate || new Date().toISOString().split("T")[0],
       endDate: formData.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      status: (formData.status as "Aktif" | "Berakhir" | "Draft") || "Aktif",
+      status: isEditor ? "Draft" : ((formData.status as "Aktif" | "Berakhir" | "Draft") || "Draft"),
       content: formData.content?.trim() || "",
       image: formData.image?.trim() || undefined,
       highlights: parsedHighlights.length > 0 ? parsedHighlights : undefined,
@@ -73,44 +83,64 @@ export default function ManageAds() {
       contactWa: formData.contactWa?.trim() || undefined,
     };
 
-    if (editingAd) {
-      try {
+    try {
+      if (editingAd) {
         const res = await api.ads.update(editingAd.id, payload);
         if (res?.data) {
           await fetchAds();
         } else {
           setAds(ads.map((a) => (a.id === editingAd.id ? { ...a, ...payload } as AdCampaign : a)));
         }
-      } catch (err) {
-        console.warn("API update ad failed, updating locally:", err);
-        setAds(ads.map((a) => (a.id === editingAd.id ? { ...a, ...payload } as AdCampaign : a)));
-      }
-    } else {
-      try {
+      } else {
         const res = await api.ads.create(payload);
         if (res?.data) {
           await fetchAds();
         } else {
           setAds([{ ...payload, id: Date.now().toString(), slug: (payload.title || 'promo').toLowerCase().replace(/[^a-z0-9]+/g, '-') } as AdCampaign, ...ads]);
         }
-      } catch (err) {
-        console.warn("API create ad failed, adding locally:", err);
+      }
+      setIsSaving(false);
+      setIsModalOpen(false);
+      await alertSuccess(editingAd ? "Promo berhasil diperbarui" : "Promo baru berhasil ditambahkan");
+    } catch (err) {
+      setIsSaving(false);
+
+      if (isValidationError(err)) {
+        await alertError("Validasi gagal", extractApiErrorMessage(err, "Periksa kembali tanggal dan data promo yang Anda masukkan."));
+        return;
+      }
+
+      console.warn("API ad operation failed, fallback local:", err);
+      if (editingAd) {
+        setAds(ads.map((a) => (a.id === editingAd.id ? { ...a, ...payload } as AdCampaign : a)));
+      } else {
         setAds([{ ...payload, id: Date.now().toString(), slug: (payload.title || 'promo').toLowerCase().replace(/[^a-z0-9]+/g, '-') } as AdCampaign, ...ads]);
       }
+      setIsModalOpen(false);
+      await alertWarning(
+        "Tersimpan sementara di perangkat ini",
+        "Server tidak dapat dihubungi. Data promo tersimpan secara lokal."
+      );
     }
-    setIsSaving(false);
-    setIsModalOpen(false);
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Apakah Anda yakin ingin menghapus iklan/promo ini?")) {
-      try {
-        await api.ads.delete(id);
-        await fetchAds();
-      } catch (err) {
-        console.warn("API delete ad failed, deleting locally:", err);
-        setAds(ads.filter((a) => a.id !== id));
-      }
+    const confirmed = await alertConfirm(
+      "Hapus iklan/promo ini?",
+      "Promo yang dihapus tidak akan ditampilkan lagi.",
+      "Ya, hapus",
+      "Batal"
+    );
+    if (!confirmed) return;
+
+    try {
+      await api.ads.delete(id);
+      await fetchAds();
+      await alertSuccess("Promo berhasil dihapus");
+    } catch (err) {
+      console.warn("API delete ad failed, deleting locally:", err);
+      setAds(ads.filter((a) => a.id !== id));
+      await alertWarning("Terhapus secara lokal", "Server tidak dapat dihubungi. Perubahan disimpan sementara di browser.");
     }
   };
 

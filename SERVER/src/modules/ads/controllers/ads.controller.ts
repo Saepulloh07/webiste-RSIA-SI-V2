@@ -8,6 +8,9 @@ import { QueryAdDto } from '../dto/query-ad.dto';
 import { Public } from '../../../common/decorators/public.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
 
+import { CurrentUser } from '../../../common/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../../../common/interfaces/request-with-user.interface';
+
 @ApiTags('Ads / Promo')
 @Controller('ads')
 export class AdsController {
@@ -31,21 +34,21 @@ export class AdsController {
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() dto: CreateAdDto) {
-    const data = await this.adsService.create(dto);
+  async create(@Body() dto: CreateAdDto, @CurrentUser() user: AuthenticatedUser) {
+    const data = await this.adsService.create(dto, user.role);
     return { message: 'Promo baru berhasil ditambahkan.', data };
   }
 
   @ApiBearerAuth()
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
   @Put(':id')
-  async update(@Param('id') id: string, @Body() dto: UpdateAdDto) {
-    const data = await this.adsService.update(id, dto);
+  async update(@Param('id') id: string, @Body() dto: UpdateAdDto, @CurrentUser() user: AuthenticatedUser) {
+    const data = await this.adsService.update(id, dto, user.role);
     return { message: 'Promo berhasil diperbarui.', data };
   }
 
   @ApiBearerAuth()
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.EDITOR)
   @Delete(':id')
   async remove(@Param('id') id: string) {
     await this.adsService.remove(id);

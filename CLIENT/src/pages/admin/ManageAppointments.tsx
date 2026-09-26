@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { api } from "@/app/api";
+import { alertSuccess, alertError, alertWarning, alertConfirm } from "@/utils/alert";
 
 export default function ManageAppointments() {
   const { appointments, updateAppointmentStatus, deleteAppointment, registrationSettings, setRegistrationSettings, fetchAppointments } = useStore();
@@ -32,13 +33,16 @@ export default function ManageAppointments() {
     setIsRefreshing(true);
     await fetchAppointments();
     setIsRefreshing(false);
+    await alertSuccess("Data pendaftaran diperbarui");
   };
 
   const handleSaveSettings = async () => {
     try {
       await api.settings.updateRegistration(tempSettings);
+      await alertSuccess("Pengaturan pendaftaran disimpan");
     } catch (e) {
       console.warn("Failed saving registration settings to API, saving locally:", e);
+      await alertWarning("Tersimpan secara lokal", "Server tidak dapat dihubungi. Perubahan disimpan di browser.");
     }
     setRegistrationSettings(tempSettings);
     setSavedFeedback(true);
@@ -52,9 +56,11 @@ export default function ManageAppointments() {
     try {
       await api.appointments.update(id, { status });
       await fetchAppointments();
+      await alertSuccess(`Status diubah menjadi ${status}`);
     } catch (e) {
       console.warn("Failed updating appointment status via API, updating locally:", e);
       updateAppointmentStatus(id, status);
+      await alertWarning("Status diperbarui lokal", "Server tidak dapat dihubungi.");
     }
     if (selectedAppointment && selectedAppointment.id === id) {
       setSelectedAppointment({ ...selectedAppointment, status });
@@ -62,17 +68,25 @@ export default function ManageAppointments() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Apakah Anda yakin ingin menghapus data pendaftaran ini?")) {
-      try {
-        await api.appointments.delete(id);
-        await fetchAppointments();
-      } catch (e) {
-        console.warn("Failed deleting appointment via API, deleting locally:", e);
-        deleteAppointment(id);
-      }
-      if (selectedAppointment && selectedAppointment.id === id) {
-        setSelectedAppointment(null);
-      }
+    const confirmed = await alertConfirm(
+      "Hapus pendaftaran ini?",
+      "Data pendaftaran pasien akan dihapus secara permanen.",
+      "Ya, hapus",
+      "Batal"
+    );
+    if (!confirmed) return;
+
+    try {
+      await api.appointments.delete(id);
+      await fetchAppointments();
+      await alertSuccess("Pendaftaran berhasil dihapus");
+    } catch (e) {
+      console.warn("Failed deleting appointment via API, deleting locally:", e);
+      deleteAppointment(id);
+      await alertWarning("Terhapus lokal", "Server tidak dapat dihubungi.");
+    }
+    if (selectedAppointment && selectedAppointment.id === id) {
+      setSelectedAppointment(null);
     }
   };
 

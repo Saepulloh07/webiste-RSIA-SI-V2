@@ -42,8 +42,9 @@ export class VacanciesService {
     return this.toResponse(vacancy);
   }
 
-  async create(dto: CreateVacancyDto) {
+  async create(dto: CreateVacancyDto, role?: string) {
     const slug = await this.generateUniqueSlug(dto.title);
+    const status = role === 'EDITOR' ? VacancyStatus.DRAFT : (dto.status ?? VacancyStatus.DRAFT);
     const vacancy = await this.repo.create({
       title: dto.title,
       slug,
@@ -52,7 +53,7 @@ export class VacanciesService {
       location: dto.location,
       experience: dto.experience,
       deadline: dto.deadline ? new Date(dto.deadline) : undefined,
-      status: dto.status,
+      status,
       description: dto.description,
       requirements: dto.requirements,
       contactEmail: dto.contactEmail,
@@ -62,17 +63,18 @@ export class VacanciesService {
     return this.toResponse(vacancy);
   }
 
-  async update(id: string, dto: UpdateVacancyDto) {
+  async update(id: string, dto: UpdateVacancyDto, role?: string) {
     const existing = await this.repo.findById(BigInt(id));
     if (!existing) throw new NotFoundException('Lowongan tidak ditemukan.');
+    const status = role === 'EDITOR' ? VacancyStatus.DRAFT : dto.status;
     const vacancy = await this.repo.update(BigInt(id), {
       ...(dto.title !== undefined ? { title: dto.title } : {}),
       ...(dto.department !== undefined ? { department: dto.department } : {}),
       ...(dto.type !== undefined ? { type: dto.type } : {}),
       ...(dto.location !== undefined ? { location: dto.location } : {}),
       ...(dto.experience !== undefined ? { experience: dto.experience } : {}),
-      ...(dto.deadline !== undefined ? { deadline: new Date(dto.deadline) } : {}),
-      ...(dto.status !== undefined ? { status: dto.status } : {}),
+      ...(dto.deadline !== undefined ? { deadline: dto.deadline ? new Date(dto.deadline) : null } : {}),
+      ...(status !== undefined ? { status } : {}),
       ...(dto.description !== undefined ? { description: dto.description } : {}),
       ...(dto.requirements !== undefined ? { requirements: dto.requirements } : {}),
       ...(dto.contactEmail !== undefined ? { contactEmail: dto.contactEmail } : {}),
