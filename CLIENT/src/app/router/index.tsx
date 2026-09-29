@@ -6,6 +6,7 @@ import Home from "@/pages/public/Home";
 import Doctors from "@/pages/public/Doctors";
 import DoctorDetail from "@/pages/public/DoctorDetail";
 import Appointment from "@/pages/public/Appointment";
+import RegistrationStatus from "@/pages/public/RegistrationStatus";
 import Services from "@/pages/public/Services";
 import ServiceDetail from "@/pages/public/ServiceDetail";
 import PatientInfo from "@/pages/public/PatientInfo";
@@ -43,6 +44,7 @@ export const router = createBrowserRouter([
       { path: "dokter", element: <Doctors /> },
       { path: "dokter/:slug", element: <DoctorDetail /> },
       { path: "pendaftaran", element: <Appointment /> },
+      { path: "pendaftaran/cek", element: <RegistrationStatus /> },
       { path: "informasi-pasien", element: <PatientInfo /> },
       { path: "artikel", element: <Articles /> },
       { path: "artikel/:slug", element: <ArticleDetail /> },
@@ -146,9 +148,3 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
-
-
-
-
-
-

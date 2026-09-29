@@ -9,8 +9,20 @@ import { Search, Plus, Edit, Trash2, Eye, Newspaper, FileText, Tag, Calendar, Us
 import { useStore, Article } from "@/store";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { CreatableSelectField, SelectOption } from "@/components/ui/creatable-select";
 import { api, normalizeRole } from "@/app/api";
 import { alertSuccess, alertError, alertWarning, alertConfirm, extractApiErrorMessage, isValidationError } from "@/utils/alert";
+
+// Opsi bawaan kategori artikel. Kategori lain bisa dibuat langsung dari dropdown.
+const ARTICLE_CATEGORY_OPTIONS: SelectOption[] = [
+  { value: "Kebidanan & Kandungan", label: "Kebidanan & Kandungan" },
+  { value: "Kesehatan Anak", label: "Kesehatan Anak" },
+  { value: "Kehamilan", label: "Kehamilan" },
+  { value: "Nutrisi & Gizi", label: "Nutrisi & Gizi" },
+  { value: "Tips Sehat", label: "Tips Sehat" },
+  { value: "Info Layanan", label: "Info Layanan" },
+  { value: "Umum", label: "Umum" },
+];
 
 export default function ManageArticles() {
   const [search, setSearch] = useState("");
@@ -170,8 +182,8 @@ export default function ManageArticles() {
         <div className="p-3.5 sm:p-4 border-b border-slate-200/80 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-slate-50/50">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input 
-              placeholder="Cari judul artikel..." 
+            <Input
+              placeholder="Cari judul artikel..."
               className="pl-9 h-9.5 bg-white text-sm rounded-xl"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -205,18 +217,18 @@ export default function ManageArticles() {
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100/70">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="h-8 px-3 text-xs gap-1.5 rounded-lg border-slate-200 text-blue-600 hover:bg-blue-50"
                     onClick={() => handleOpenModal(article)}
                   >
                     <Edit className="w-3.5 h-3.5" />
                     <span>Edit</span>
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="h-8 px-3 text-xs gap-1.5 rounded-lg border-slate-200 text-rose-600 hover:bg-rose-50"
                     onClick={() => handleDelete(article.id)}
                   >
@@ -279,8 +291,8 @@ export default function ManageArticles() {
         </div>
       </div>
 
-      <Modal 
-        isOpen={isModalOpen} 
+      <Modal
+        isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingArticle ? "Edit Artikel Edukasi" : "Tulis Artikel Baru"}
         description="Kelola publikasi wawasan medis, tips kesehatan ibu dan anak, serta panduan layanan klinis."
@@ -309,9 +321,9 @@ export default function ManageArticles() {
               <div className="md:col-span-4 space-y-2">
                 <Label className="text-xs font-semibold text-slate-700">Gambar Sampul (Thumbnail)</Label>
                 <div className="bg-white p-2 rounded-xl border border-slate-200 shadow-2xs">
-                  <ImageUpload 
-                    value={formData.image || ""} 
-                    onChange={(val) => setFormData({ ...formData, image: val })} 
+                  <ImageUpload
+                    value={formData.image || ""}
+                    onChange={(val) => setFormData({ ...formData, image: val })}
                   />
                 </div>
                 <p className="text-[11px] text-slate-400 text-center">Format landscape rasio 16:9 disarankan</p>
@@ -320,10 +332,10 @@ export default function ManageArticles() {
               <div className="md:col-span-8 space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="title" className="text-xs font-semibold text-slate-700">Judul Artikel Medis <span className="text-rose-500">*</span></Label>
-                  <Input 
-                    id="title" 
-                    value={formData.title || ""} 
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })} 
+                  <Input
+                    id="title"
+                    value={formData.title || ""}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     placeholder="Contoh: Mengenal Manfaat Metode ERACS untuk Persalinan Caesar yang Cepat dan Nyaman"
                     className="h-10 bg-white font-medium"
                   />
@@ -332,24 +344,19 @@ export default function ManageArticles() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div className="space-y-1.5">
                     <Label htmlFor="category" className="text-xs font-semibold text-slate-700">Kategori Artikel</Label>
-                    <select 
+                    <CreatableSelectField
                       id="category"
-                      className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
                       value={formData.category || "Kebidanan & Kandungan"}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    >
-                      <option value="Kebidanan & Kandungan">Kebidanan & Kandungan</option>
-                      <option value="Kesehatan Anak">Kesehatan Anak</option>
-                      <option value="Kehamilan">Kehamilan</option>
-                      <option value="Nutrisi & Gizi">Nutrisi & Gizi</option>
-                      <option value="Tips Sehat">Tips Sehat</option>
-                      <option value="Info Layanan">Info Layanan</option>
-                      <option value="Umum">Umum</option>
-                    </select>
+                      onChange={(val) => setFormData({ ...formData, category: val })}
+                      options={ARTICLE_CATEGORY_OPTIONS}
+                      extraValues={articles.map((a) => a.category)}
+                      placeholder="Pilih atau ketik kategori baru..."
+                      createLabel={(input) => `Tambah kategori "${input.trim()}"`}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="status" className="text-xs font-semibold text-slate-700">Status Publikasi</Label>
-                    <select 
+                    <select
                       id="status"
                       className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 disabled:opacity-50 disabled:bg-slate-100"
                       value={formData.status || "Draft"}
@@ -369,10 +376,10 @@ export default function ManageArticles() {
                   <div className="space-y-1.5">
                     <Label htmlFor="author" className="text-xs font-semibold text-slate-700">Penulis / Reviewer Medis</Label>
                     <div className="relative">
-                      <Input 
-                        id="author" 
-                        value={formData.author || ""} 
-                        onChange={(e) => setFormData({ ...formData, author: e.target.value })} 
+                      <Input
+                        id="author"
+                        value={formData.author || ""}
+                        onChange={(e) => setFormData({ ...formData, author: e.target.value })}
                         placeholder="Contoh: dr. Amanda Saraswati, Sp.OG"
                         className="h-10 bg-white pr-9"
                       />
@@ -382,10 +389,10 @@ export default function ManageArticles() {
                   <div className="space-y-1.5">
                     <Label htmlFor="date" className="text-xs font-semibold text-slate-700">Tanggal Tayang</Label>
                     <div className="relative">
-                      <Input 
-                        id="date" 
-                        value={formData.date || ""} 
-                        onChange={(e) => setFormData({ ...formData, date: e.target.value })} 
+                      <Input
+                        id="date"
+                        value={formData.date || ""}
+                        onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                         placeholder="Contoh: 14 Okt 2024"
                         className="h-10 bg-white pr-9"
                       />
@@ -397,10 +404,10 @@ export default function ManageArticles() {
                 <div className="space-y-1.5">
                   <Label htmlFor="tags" className="text-xs font-semibold text-slate-700">Topik / Kata Kunci Tag (Pisahkan dengan koma)</Label>
                   <div className="relative">
-                    <Input 
-                      id="tags" 
-                      value={tagsText} 
-                      onChange={(e) => setTagsText(e.target.value)} 
+                    <Input
+                      id="tags"
+                      value={tagsText}
+                      onChange={(e) => setTagsText(e.target.value)}
                       placeholder="Contoh: ERACS, Persalinan Caesar, Obgyn, Pemulihan Cepat, RSIA Sayang Ibu"
                       className="h-10 bg-white pr-9"
                     />
@@ -422,9 +429,9 @@ export default function ManageArticles() {
             </div>
 
             <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-2xs">
-              <RichTextEditor 
-                content={formData.content || ""} 
-                onChange={(content) => setFormData({ ...formData, content })} 
+              <RichTextEditor
+                content={formData.content || ""}
+                onChange={(content) => setFormData({ ...formData, content })}
               />
             </div>
           </div>

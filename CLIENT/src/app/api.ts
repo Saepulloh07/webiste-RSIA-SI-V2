@@ -30,6 +30,73 @@ export interface ApiError {
   code?: string;
 }
 
+// -----------------------------------------------------------------------------
+// TIPE: SIMRS Booking & Queue
+// -----------------------------------------------------------------------------
+
+export interface Poliklinik {
+  kdPoli: string;
+  nmPoli: string;
+}
+
+export interface BookingRegisterPayload {
+  nama: string;
+  alamat: string;
+  noTelp: string;
+  email?: string;
+  kdPoli: string;
+  /** Format YYYY-MM-DD */
+  tanggal: string;
+  tambahanPesan?: string;
+}
+
+/** Status booking di tabel booking_periksa (SIMRS). */
+export type BookingStatus = 'Belum Dibalas' | 'Diterima' | 'Ditolak';
+
+export interface BookingRegisterResult {
+  noBooking: string;
+  status: BookingStatus;
+  tanggal: string;
+  kdPoli: string;
+  nmPoli: string;
+}
+
+export interface BookingStatusResult {
+  noBooking: string;
+  nama: string;
+  kdPoli: string;
+  tanggal: string;
+  status: BookingStatus;
+}
+
+/** Status pelayanan rawat jalan (reg_periksa.stts). */
+export type QueueServiceStatus = 'Belum' | 'Berkas Diterima' | 'Sudah' | 'Batal' | string;
+
+export interface QueueResult {
+  noRawat: string;
+  kdPoli: string;
+  status: QueueServiceStatus;
+  /** Urutan pendaftaran pada poliklinik yang sama hari ini (dimulai dari 1). */
+  queuePosition: number;
+}
+
+export interface VisitHistoryItem {
+  noRawat: string;
+  tglRegistrasi: string;
+  kdPoli: string;
+  kdDokter: string;
+  statusLanjut: string;
+  statusBayar: string;
+}
+
+export interface QueueStreamSnapshot {
+  kdPoli?: string;
+  totalToday?: number;
+  waiting?: number;
+  updatedAt?: string;
+  error?: string;
+}
+
 export type AdminRole = "Super Admin" | "Admin" | "Editor";
 
 export function normalizeRole(role?: string | null): AdminRole {
@@ -122,7 +189,7 @@ async function request<T = any>(
     const fieldMessages = json?.errors && typeof json.errors === 'object'
       ? Object.values(json.errors).flat().filter(Boolean).join(', ')
       : '';
-    const errorMessage = fieldMessages || json?.message || 'Terjadi kesalahan pada server';
+    const errorMessage = fieldMessages || json?.message || json?.error || 'Terjadi kesalahan pada server';
     const error: Error & { details?: any; status?: number } = new Error(errorMessage);
     error.details = json;
     error.status = response.status;
@@ -432,24 +499,38 @@ export const api = {
       }>('dashboard/stats'),
   },
 
-  // SIMRS Queue & Booking Bridge
+  // SIMRS Booking & Queue Bridge
+  //
+  // Kontrak mengikuti kode SERVER (bukan hanya API_DOCUMENTATION.txt):
+  //  - Body & response memakai camelCase (noTelp, kdPoli, noBooking, ...).
+  //    Server memakai `forbidNonWhitelisted`, sehingga field yang tidak dikenal
+  //    (mis. snake_case `no_telp`) akan ditolak dengan HTTP 422.
+  //  - /register, /check, /poliklinik berada di bawah prefix /api/v1.
+  //  - /api/queue/* dan /api/appointments/history berada DI LUAR prefix /api/v1,
+  //    sehingga harus dipanggil lewat SERVER_BASE_URL (bukan API_BASE_URL).
   simrs: {
-    getPoliklinik: () => request<any[]>('poliklinik'),
-    register: (data: any) =>
-      request('register', {
+    getPoliklinik: () => request<Poliklinik[]>('poliklinik'),
+    register: (data: BookingRegisterPayload) =>
+      request<BookingRegisterResult>('register', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
-    check: (credentials: { no_booking: string; no_telp: string }) =>
-      request('check', {
+    check: (noBooking: string) =>
+      request<BookingStatusResult>('check', {
         method: 'POST',
-        body: JSON.stringify(credentials),
+        body: JSON.stringify({ noBooking }),
       }),
-    checkQueue: (credentials: { no_booking: string; no_telp: string }) =>
-      request('api/queue/check', {
+    checkQueue: (noTelp: string) =>
+      request<QueueResult>(`${SERVER_BASE_URL.replace(/\/$/, '')}/api/queue/check`, {
         method: 'POST',
-        body: JSON.stringify(credentials),
+        body: JSON.stringify({ noTelp }),
       }),
-    myQueue: () => request('api/queue/my-queue'),
+    history: (noTelp: string) =>
+      request<VisitHistoryItem[]>(
+        `${SERVER_BASE_URL.replace(/\/$/, '')}/api/appointments/history?no_telp=${encodeURIComponent(noTelp)}`
+      ),
+    /** URL Server-Sent Events untuk memantau antrean satu poliklinik secara live. */
+    queueStreamUrl: (kdPoli: string) =>
+      `${SERVER_BASE_URL.replace(/\/$/, '')}/api/queue/stream?kd_poli=${encodeURIComponent(kdPoli)}`,
   },
 };

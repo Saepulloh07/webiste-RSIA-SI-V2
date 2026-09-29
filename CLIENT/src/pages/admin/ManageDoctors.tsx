@@ -8,8 +8,18 @@ import { Modal } from "@/components/ui/modal";
 import { Search, Plus, Edit, Trash2, Stethoscope, Calendar, GraduationCap, UserCheck, FileText, Loader2 } from "lucide-react";
 import { useStore, Doctor } from "@/store";
 import { ImageUpload } from "@/components/ui/image-upload";
+import { CreatableSelectField, SelectOption } from "@/components/ui/creatable-select";
 import { api } from "@/app/api";
 import { alertSuccess, alertError, alertWarning, alertConfirm, extractApiErrorMessage, isValidationError } from "@/utils/alert";
+
+// Opsi bawaan spesialisasi. "value" = nilai yang disimpan & tampil di web publik,
+// "label" = teks yang tampil di dropdown admin. Spesialisasi lain bisa dibuat langsung.
+const SPECIALTY_OPTIONS: SelectOption[] = [
+  { value: "Kandungan", label: "Kandungan & Kebidanan (Obgyn)" },
+  { value: "Anak", label: "Spesialis Anak (Pediatri)" },
+  { value: "Penyakit Dalam", label: "Penyakit Dalam (Internis)" },
+  { value: "Umum", label: "Dokter Umum / IGD" },
+];
 
 export default function ManageDoctors() {
   const [search, setSearch] = useState("");
@@ -159,8 +169,8 @@ export default function ManageDoctors() {
         <div className="p-3.5 sm:p-4 border-b border-slate-200/80 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-slate-50/50">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input 
-              placeholder="Cari dokter atau spesialis..." 
+            <Input
+              placeholder="Cari dokter atau spesialis..."
               className="pl-9 h-9.5 bg-white text-sm rounded-xl"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -204,18 +214,18 @@ export default function ManageDoctors() {
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100/70">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="h-8 px-3 text-xs gap-1.5 rounded-lg border-slate-200 text-blue-600 hover:bg-blue-50"
                     onClick={() => handleOpenModal(doc)}
                   >
                     <Edit className="w-3.5 h-3.5" />
                     <span>Edit Data</span>
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="h-8 px-3 text-xs gap-1.5 rounded-lg border-slate-200 text-rose-600 hover:bg-rose-50"
                     onClick={() => handleDelete(doc.id)}
                   >
@@ -287,8 +297,8 @@ export default function ManageDoctors() {
         </div>
       </div>
 
-      <Modal 
-        isOpen={isModalOpen} 
+      <Modal
+        isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingDoctor ? "Edit Profil Dokter" : "Tambah Dokter Baru"}
         description="Kelola informasi profil, surat izin praktik, jadwal rutin, dan riwayat klinis dokter."
@@ -317,9 +327,9 @@ export default function ManageDoctors() {
               <div className="md:col-span-4 space-y-2">
                 <Label className="text-xs font-semibold text-slate-700">Foto Profil Dokter</Label>
                 <div className="bg-white p-2 rounded-xl border border-slate-200 shadow-2xs">
-                  <ImageUpload 
-                    value={formData.image || ""} 
-                    onChange={(val) => setFormData({ ...formData, image: val })} 
+                  <ImageUpload
+                    value={formData.image || ""}
+                    onChange={(val) => setFormData({ ...formData, image: val })}
                   />
                 </div>
                 <p className="text-[11px] text-slate-400 text-center">Gunakan foto berlatar bersih rasio 1:1 atau 3:4</p>
@@ -328,10 +338,10 @@ export default function ManageDoctors() {
               <div className="md:col-span-8 space-y-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="name" className="text-xs font-semibold text-slate-700">Nama Lengkap Beserta Gelar <span className="text-rose-500">*</span></Label>
-                  <Input 
-                    id="name" 
-                    value={formData.name || ""} 
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })} 
+                  <Input
+                    id="name"
+                    value={formData.name || ""}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="Contoh: dr. Amanda Saraswati, Sp.OG, Subsp. Obginsos"
                     className="h-10 bg-white"
                   />
@@ -340,21 +350,19 @@ export default function ManageDoctors() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div className="space-y-1.5">
                     <Label htmlFor="specialty" className="text-xs font-semibold text-slate-700">Spesialisasi Pokok</Label>
-                    <select 
+                    <CreatableSelectField
                       id="specialty"
-                      className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
                       value={formData.specialty || "Kandungan"}
-                      onChange={(e) => setFormData({ ...formData, specialty: e.target.value })}
-                    >
-                      <option value="Kandungan">Kandungan & Kebidanan (Obgyn)</option>
-                      <option value="Anak">Spesialis Anak (Pediatri)</option>
-                      <option value="Penyakit Dalam">Penyakit Dalam (Internis)</option>
-                      <option value="Umum">Dokter Umum / IGD</option>
-                    </select>
+                      onChange={(val) => setFormData({ ...formData, specialty: val })}
+                      options={SPECIALTY_OPTIONS}
+                      extraValues={doctors.map((d) => d.specialty)}
+                      placeholder="Pilih atau ketik spesialisasi baru..."
+                      createLabel={(input) => `Tambah spesialisasi "${input.trim()}"`}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="status" className="text-xs font-semibold text-slate-700">Status Praktik</Label>
-                    <select 
+                    <select
                       id="status"
                       className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
                       value={formData.status || "Aktif"}
@@ -370,20 +378,20 @@ export default function ManageDoctors() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div className="space-y-1.5">
                     <Label htmlFor="sipNumber" className="text-xs font-semibold text-slate-700">Nomor SIP / Izin Praktik</Label>
-                    <Input 
-                      id="sipNumber" 
-                      value={formData.sipNumber || ""} 
-                      onChange={(e) => setFormData({ ...formData, sipNumber: e.target.value })} 
+                    <Input
+                      id="sipNumber"
+                      value={formData.sipNumber || ""}
+                      onChange={(e) => setFormData({ ...formData, sipNumber: e.target.value })}
                       placeholder="Contoh: 503/SIP.DS/DPM-PTSP/2023"
                       className="h-10 bg-white"
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="poliklinik" className="text-xs font-semibold text-slate-700">Poliklinik / Ruang Praktik</Label>
-                    <Input 
-                      id="poliklinik" 
-                      value={formData.poliklinik || ""} 
-                      onChange={(e) => setFormData({ ...formData, poliklinik: e.target.value })} 
+                    <Input
+                      id="poliklinik"
+                      value={formData.poliklinik || ""}
+                      onChange={(e) => setFormData({ ...formData, poliklinik: e.target.value })}
                       placeholder="Contoh: Poli Obgyn Lantai 2"
                       className="h-10 bg-white"
                     />
@@ -392,10 +400,10 @@ export default function ManageDoctors() {
 
                 <div className="space-y-1.5">
                   <Label htmlFor="subspecialty" className="text-xs font-semibold text-slate-700">Sub-Spesialis / Layanan Unggulan</Label>
-                  <Input 
-                    id="subspecialty" 
-                    value={formData.subspecialty || ""} 
-                    onChange={(e) => setFormData({ ...formData, subspecialty: e.target.value })} 
+                  <Input
+                    id="subspecialty"
+                    value={formData.subspecialty || ""}
+                    onChange={(e) => setFormData({ ...formData, subspecialty: e.target.value })}
                     placeholder="Contoh: Fetomaternal, ERACS & Fertilitas"
                     className="h-10 bg-white"
                   />
@@ -410,13 +418,13 @@ export default function ManageDoctors() {
               <Calendar className="w-4 h-4 text-amber-600" />
               <span>Jadwal Praktik & Ketersediaan</span>
             </div>
-            
+
             <div className="space-y-1.5">
               <Label htmlFor="schedule" className="text-xs font-semibold text-slate-700">Jadwal Praktik Rutin</Label>
-              <Input 
-                id="schedule" 
-                value={formData.schedule || ""} 
-                onChange={(e) => setFormData({ ...formData, schedule: e.target.value })} 
+              <Input
+                id="schedule"
+                value={formData.schedule || ""}
+                onChange={(e) => setFormData({ ...formData, schedule: e.target.value })}
                 placeholder="Contoh: Senin - Kamis: 09:00 - 13:00 WIB, Jumat: 14:00 - 17:00 WIB"
                 className="h-10 bg-white"
               />
@@ -434,12 +442,12 @@ export default function ManageDoctors() {
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label htmlFor="bio" className="text-xs font-semibold text-slate-700">Profil Singkat & Dedikasi Dokter</Label>
-                <textarea 
-                  id="bio" 
+                <textarea
+                  id="bio"
                   rows={3}
                   className="flex w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
-                  value={formData.bio || ""} 
-                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })} 
+                  value={formData.bio || ""}
+                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                   placeholder="Tuliskan latar belakang singkat mengenai pengalaman dan dedikasi klinis dokter..."
                 />
               </div>
@@ -449,12 +457,12 @@ export default function ManageDoctors() {
                   <Label htmlFor="education" className="text-xs font-semibold text-slate-700">Riwayat Pendidikan & Organisasi Profesi</Label>
                   <span className="text-[11px] text-slate-400">1 baris per institusi / gelar</span>
                 </div>
-                <textarea 
-                  id="education" 
+                <textarea
+                  id="education"
                   rows={4}
                   className="flex w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
-                  value={educationText} 
-                  onChange={(e) => setEducationText(e.target.value)} 
+                  value={educationText}
+                  onChange={(e) => setEducationText(e.target.value)}
                   placeholder="Contoh:&#10;Spesialis Obstetri & Ginekologi - FK Universitas Andalas&#10;Pendidikan Dokter Umum - Universitas Padjadjaran&#10;Anggota POGI & IDI Cabang Sumatera Barat"
                 />
                 <p className="text-[11px] text-slate-500">Otomatis diformat menjadi poin-poin terstruktur pada tab profil dokter.</p>

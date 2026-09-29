@@ -8,8 +8,19 @@ import { Modal } from "@/components/ui/modal";
 import { Search, Plus, Edit, Trash2, Activity, Clock, CheckCircle2, Building2, Layers } from "lucide-react";
 import { useStore, Service } from "@/store";
 import { ImageUpload } from "@/components/ui/image-upload";
+import { CreatableSelectField, SelectOption } from "@/components/ui/creatable-select";
 import { api } from "@/app/api";
 import { alertSuccess, alertError, alertWarning, alertConfirm, extractApiErrorMessage, isValidationError } from "@/utils/alert";
+
+// Opsi bawaan kategori unit. Kategori lain bisa dibuat langsung dari dropdown.
+const CATEGORY_OPTIONS: SelectOption[] = [
+  { value: "Poliklinik", label: "Poliklinik" },
+  { value: "Gawat Darurat", label: "Gawat Darurat" },
+  { value: "Penunjang Medis", label: "Penunjang Medis" },
+  { value: "Kamar Bersalin", label: "Kamar Bersalin (VK)" },
+  { value: "Rawat Inap", label: "Rawat Inap" },
+  { value: "Layanan Khusus", label: "Layanan Khusus" },
+];
 
 export default function ManageServices() {
   const [search, setSearch] = useState("");
@@ -321,19 +332,15 @@ export default function ManageServices() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div className="space-y-1.5">
                     <Label htmlFor="category" className="text-xs font-semibold text-slate-700">Kategori Unit</Label>
-                    <select
+                    <CreatableSelectField
                       id="category"
-                      className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
                       value={formData.category || "Poliklinik"}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    >
-                      <option value="Poliklinik">Poliklinik</option>
-                      <option value="Gawat Darurat">Gawat Darurat</option>
-                      <option value="Penunjang Medis">Penunjang Medis</option>
-                      <option value="Kamar Bersalin">Kamar Bersalin (VK)</option>
-                      <option value="Rawat Inap">Rawat Inap</option>
-                      <option value="Layanan Khusus">Layanan Khusus</option>
-                    </select>
+                      onChange={(val) => setFormData({ ...formData, category: val })}
+                      options={CATEGORY_OPTIONS}
+                      extraValues={services.map((sv) => sv.category)}
+                      placeholder="Pilih atau ketik kategori baru..."
+                      createLabel={(input) => `Tambah kategori "${input.trim()}"`}
+                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="status" className="text-xs font-semibold text-slate-700">Status Layanan</Label>

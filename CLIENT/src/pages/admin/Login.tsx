@@ -104,11 +104,6 @@ export default function Login() {
               </Alert>
             )}
 
-            <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg text-xs text-slate-600 mb-6 space-y-1">
-              <p className="font-semibold mb-2">Akun Default CMS:</p>
-              <p>• <strong>superadmin@sayangibu.co.id</strong> (Password: admin123 / ChangeMe123!)</p>
-            </div>
-
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Alamat Email</Label>
