@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, IsUrl } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class UpdateHospitalSettingDto {
   @ApiPropertyOptional() @IsOptional() @IsString() hospitalName?: string;
@@ -14,6 +14,12 @@ export class UpdateHospitalSettingDto {
   @ApiPropertyOptional() @IsOptional() @IsString() address?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() mapsUrl?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() mapsEmbed?: string;
+  /** Gambar/visual peta yang tampil pada bagian Kontak di Beranda. */
+  @ApiPropertyOptional() @IsOptional() @IsString() mapsImageUrl?: string;
+  /** Video profil "Tur Fasilitas & Edukasi Medis" (YouTube atau file video langsung). */
+  @ApiPropertyOptional() @IsOptional() @IsString() videoUrl?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(255) videoTitle?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() videoThumbnailUrl?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() instagram?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() facebook?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() youtube?: string;

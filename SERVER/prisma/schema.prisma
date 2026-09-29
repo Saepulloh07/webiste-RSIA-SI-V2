@@ -284,6 +284,10 @@ model HospitalSetting {
   youtube          String?  @db.VarChar(255)
   tiktok           String?  @db.VarChar(255)
   updatedAt        DateTime @updatedAt @map("updated_at")
+  mapsImageUrl     String?  @map("maps_image_url") @db.Text
+  videoUrl         String?  @map("video_url") @db.Text
+  videoTitle       String?  @map("video_title") @db.VarChar(255)
+  videoThumbnailUrl String?  @map("video_thumbnail_url") @db.Text
 
   @@map("hospital_settings")
 }

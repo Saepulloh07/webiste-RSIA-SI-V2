@@ -91,6 +91,12 @@ export type AppSettings = {
   address: string;
   mapsUrl: string;
   mapsEmbed: string;
+  /** Gambar peta di bagian Kontak Beranda (diatur dari CMS). */
+  mapsImageUrl: string;
+  /** Video profil Beranda: URL YouTube atau file video langsung (diatur dari CMS). */
+  videoUrl: string;
+  videoTitle: string;
+  videoThumbnailUrl: string;
   instagram: string;
   facebook: string;
   youtube: string;
@@ -196,6 +202,10 @@ const initialSettings: AppSettings = {
   address: "Batusangkar, Kab. Tanah Datar, Sumatera Barat",
   mapsUrl: "https://maps.google.com/?q=RSIA+Sayang+Ibu+Batusangkar",
   mapsEmbed: "",
+  mapsImageUrl: "",
+  videoUrl: "",
+  videoTitle: "",
+  videoThumbnailUrl: "",
   instagram: "https://instagram.com/rsiasayangibu",
   facebook: "https://facebook.com/rsiasayangibu",
   youtube: "",
@@ -385,6 +395,21 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'rsia_sayang_ibu_store_v2',
+      // Data lama di localStorage tidak punya field-field baru (mis. videoUrl,
+      // mapsImageUrl). Gabungkan dengan nilai awal agar field baru tidak
+      // `undefined`, dan buang field kuota lama pada pengaturan pendaftaran.
+      merge: (persisted, current) => {
+        const saved = (persisted ?? {}) as Partial<AppState>;
+        return {
+          ...current,
+          ...saved,
+          settings: { ...initialSettings, ...(saved.settings ?? {}) },
+          registrationSettings: {
+            isOpen: saved.registrationSettings?.isOpen ?? initialRegistrationSettings.isOpen,
+            noticeMessage: saved.registrationSettings?.noticeMessage ?? initialRegistrationSettings.noticeMessage,
+          },
+        };
+      },
     }
   )
 );

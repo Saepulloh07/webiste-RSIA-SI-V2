@@ -46,6 +46,10 @@ export class SettingsService {
     address: string | null;
     mapsUrl: string | null;
     mapsEmbed: string | null;
+    mapsImageUrl: string | null;
+    videoUrl: string | null;
+    videoTitle: string | null;
+    videoThumbnailUrl: string | null;
     instagram: string | null;
     facebook: string | null;
     youtube: string | null;
@@ -64,6 +68,10 @@ export class SettingsService {
       address: setting.address ?? '',
       mapsUrl: setting.mapsUrl ?? '',
       mapsEmbed: setting.mapsEmbed ?? '',
+      mapsImageUrl: setting.mapsImageUrl ?? '',
+      videoUrl: setting.videoUrl ?? '',
+      videoTitle: setting.videoTitle ?? '',
+      videoThumbnailUrl: setting.videoThumbnailUrl ?? '',
       instagram: setting.instagram ?? '',
       facebook: setting.facebook ?? '',
       youtube: setting.youtube ?? '',

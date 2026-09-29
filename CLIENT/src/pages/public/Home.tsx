@@ -12,9 +12,41 @@ import { useStore } from "@/store";
 import { MediaWatermark } from "@/components/common/MediaWatermark";
 import { DoctorCard } from "@/components/cards/DoctorCard";
 import { SEOHead } from "@/components/common/SEOHead";
+import { VideoShowcase } from "@/components/common/Videoshowcase";
+import { parseVideoSource } from "@/utils/video";
 
 const DEFAULT_HERO_IMAGE = "https://images.unsplash.com/photo-1538108149393-fbbd81895907?q=80&w=1000&auto=format&fit=crop";
+const DEFAULT_MAPS_IMAGE = "https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=1200&auto=format&fit=crop";
 const HERO_SLIDE_INTERVAL_MS = 5000;
+
+/**
+ * Gambar layanan pada kartu "Layanan Kami". Memakai gambar yang diunggah admin
+ * (Kelola Layanan); jika belum ada / gagal dimuat, kembali ke ikon placeholder.
+ */
+function ServiceCardImage({ src, alt, index }: { src?: string; alt: string; index: number }) {
+  const [broken, setBroken] = useState(false);
+
+  if (src && !broken) {
+    return (
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        decoding="async"
+        onError={() => setBroken(true)}
+        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+      />
+    );
+  }
+
+  return (
+    <>
+      {index % 3 === 0 && <HeartPulse className="w-16 h-16 text-primary/30" />}
+      {index % 3 === 1 && <Baby className="w-16 h-16 text-amber-600/30" />}
+      {index % 3 === 2 && <Activity className="w-16 h-16 text-emerald-600/30" />}
+    </>
+  );
+}
 
 export default function Home() {
   const { articles, settings, media, services, doctors, ads, fetchSettings, fetchMedia } = useStore();
@@ -27,6 +59,7 @@ export default function Home() {
   const activeDoctors = doctors.filter(d => d.status === 'Aktif').slice(0, 4);
   const displayServices = (services || []).filter(s => s.status === 'Aktif').slice(0, 3);
   const activeAds = (ads || []).filter(a => a.status === 'Aktif');
+  const hasVideo = !!parseVideoSource(settings.videoUrl);
 
   // Gambar hero beranda kini berupa SLIDESHOW yang diatur langsung dari CMS
   // (Pengaturan Web → Slideshow Beranda). Admin mengunggah gambar dengan tipe
@@ -379,14 +412,12 @@ export default function Home() {
                   >
                     <div>
                       <div className="aspect-[16/10] bg-gradient-to-tr from-rose-50 to-amber-50 rounded-2xl overflow-hidden mb-5 relative flex items-center justify-center">
-                        {index === 0 && <HeartPulse className="w-16 h-16 text-primary/30" />}
-                        {index === 1 && <Baby className="w-16 h-16 text-amber-600/30" />}
-                        {index === 2 && <Activity className="w-16 h-16 text-emerald-600/30" />}
+                        <ServiceCardImage src={service.image} alt={service.name} index={index} />
 
                         <div className={`absolute top-3 left-3 w-10 h-10 rounded-xl shadow-sm flex items-center justify-center ${badgeColors[index % 3]} z-10`}>
-                          {index === 0 && <HeartPulse className="w-5 h-5" />}
-                          {index === 1 && <Baby className="w-5 h-5" />}
-                          {index === 2 && <Activity className="w-5 h-5" />}
+                          {index % 3 === 0 && <HeartPulse className="w-5 h-5" />}
+                          {index % 3 === 1 && <Baby className="w-5 h-5" />}
+                          {index % 3 === 2 && <Activity className="w-5 h-5" />}
                         </div>
 
                         {/* Proportional Watermark */}
@@ -442,43 +473,25 @@ export default function Home() {
         </section>
       )}
 
-      {/* YouTube Video Section with Proportional Watermark */}
-      <section className="py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
-        <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-b from-primary/15 to-transparent opacity-60"></div>
-        <div className="container mx-auto px-4 md:px-6 relative z-10 text-center">
-          <h2 className="text-[11px] md:text-xs font-bold text-amber-400 uppercase tracking-widest mb-2 md:mb-3">Mengenal Kami</h2>
-          <h3 className="text-2xl sm:text-3xl md:text-5xl font-bold font-heading mb-8 md:mb-12">Tur Fasilitas & Edukasi Medis</h3>
+      {/* Video Profil — diatur dari CMS (Pengaturan Web → Video Profil).
+          Bagian ini disembunyikan sampai admin mengisi URL video yang valid. */}
+      {hasVideo && (
+        <section className="py-16 md:py-24 relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white">
+          <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-b from-primary/15 to-transparent opacity-60"></div>
+          <div className="container mx-auto px-4 md:px-6 relative z-10 text-center">
+            <h2 className="text-[11px] md:text-xs font-bold text-amber-400 uppercase tracking-widest mb-2 md:mb-3">Mengenal Kami</h2>
+            <h3 className="text-2xl sm:text-3xl md:text-5xl font-bold font-heading mb-8 md:mb-12">Tur Fasilitas & Edukasi Medis</h3>
 
-          <div className="max-w-5xl mx-auto aspect-video bg-slate-900 rounded-2xl md:rounded-3xl shadow-2xl relative overflow-hidden group border border-amber-500/20">
-            {/* Thumbnail with Proportional Watermark on Top-Right */}
-            <img
-              src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=1200"
-              className="w-full h-full object-cover opacity-60 group-hover:opacity-40 transition-opacity duration-700"
-              alt="Hospital Tour Video"
-              loading="lazy"
-              decoding="async"
+            <VideoShowcase
+              key={settings.videoUrl}
+              videoUrl={settings.videoUrl}
+              title={settings.videoTitle || `Company Profile ${settings.hospitalName || "RSIA Sayang Ibu Batusangkar"}`}
+              subtitle="Official Video Profil & Fasilitas Layanan Medis"
+              thumbnailUrl={settings.videoThumbnailUrl}
             />
-
-            {/* Proportional Hospital Watermark on Video */}
-            <MediaWatermark size="lg" />
-
-            <div className="absolute inset-0 flex items-center justify-center">
-              <button
-                aria-label="Putar Video Company Profile"
-                className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center cursor-pointer group-hover:scale-110 group-hover:bg-primary transition-all duration-300 shadow-[0_0_40px_rgba(225,29,72,0.5)] border border-white/30"
-              >
-                <Play className="w-6 h-6 md:w-10 md:h-10 text-white fill-white ml-1 md:ml-2" />
-              </button>
-            </div>
-            <div className="absolute bottom-0 left-0 w-full p-4 md:p-6 bg-gradient-to-t from-black/85 via-black/50 to-transparent text-left">
-              <p className="text-base sm:text-lg md:text-xl font-bold font-heading text-white line-clamp-1">
-                Company Profile {settings.hospitalName || "RSIA Sayang Ibu Batusangkar"}
-              </p>
-              <p className="text-xs md:text-sm text-slate-300 mt-1">Official Video Profil & Fasilitas Layanan Medis</p>
-            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Latest Articles Section (Dynamic from CMS) */}
       {publishedArticles.length > 0 && (
@@ -586,10 +599,16 @@ export default function Home() {
             {/* Google Maps Visual with Proportional Watermark */}
             <div className="relative h-[280px] sm:h-[320px] md:h-[400px] lg:min-h-full bg-slate-100 order-1 lg:order-2 overflow-hidden">
               <img
-                src="https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=1200&auto=format&fit=crop"
+                key={settings.mapsImageUrl || "default-maps"}
+                src={settings.mapsImageUrl || DEFAULT_MAPS_IMAGE}
                 alt="Lokasi RSIA Sayang Ibu"
                 loading="lazy"
                 decoding="async"
+                onError={(e) => {
+                  // Jika gambar dari CMS gagal dimuat, pakai gambar default (sekali saja)
+                  const img = e.currentTarget;
+                  if (img.src !== DEFAULT_MAPS_IMAGE) img.src = DEFAULT_MAPS_IMAGE;
+                }}
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 bg-primary/10 mix-blend-multiply"></div>

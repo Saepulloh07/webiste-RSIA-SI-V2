@@ -245,12 +245,15 @@ Tabel 9: hospital_settings (Profil & Informasi Resmi Rumah Sakit)
 - facebook        : VARCHAR(255) NULL
 - youtube         : VARCHAR(255) NULL
 - tiktok          : VARCHAR(255) NULL
+- maps_image_url  : TEXT NULL          (gambar peta di Beranda, diatur dari CMS)
+- video_url       : TEXT NULL          (video profil Beranda: URL YouTube atau file .mp4/.webm)
+- video_title     : VARCHAR(255) NULL
+- video_thumbnail_url : TEXT NULL      (thumbnail video; jika kosong dan video YouTube, dipakai thumbnail YouTube)
 - updated_at      : TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 
 Tabel 10: registration_settings (Pengaturan Form Pendaftaran Online)
 - id               : INT PRIMARY KEY DEFAULT 1
 - is_open          : BOOLEAN NOT NULL DEFAULT TRUE
-- max_daily_quota  : INT NOT NULL DEFAULT 50
 - notice_message   : TEXT NULL
 - updated_at       : TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 
@@ -1404,6 +1407,10 @@ Response 200 OK:
     "address": "Batusangkar, Kab. Tanah Datar, Sumatera Barat",
     "mapsUrl": "https://maps.google.com/?q=RSIA+Sayang+Ibu+Batusangkar",
     "mapsEmbed": "<iframe ...></iframe>",
+    "mapsImageUrl": "http://localhost:5000/uploads/peta-lokasi.jpg",
+    "videoUrl": "https://www.youtube.com/watch?v=XXXXXXXXXXX",
+    "videoTitle": "Company Profile RSIA Sayang Ibu Batusangkar",
+    "videoThumbnailUrl": "http://localhost:5000/uploads/thumbnail-video.jpg",
     "instagram": "https://instagram.com/rsiasayangibu",
     "facebook": "https://facebook.com/rsiasayangibu",
     "youtube": "",
@@ -1448,7 +1455,6 @@ Response 200 OK:
   "message": "Pengaturan pendaftaran berhasil diambil.",
   "data": {
     "isOpen": true,
-    "maxDailyQuota": 50,
     "noticeMessage": "Harap hadir 30 menit sebelum jadwal praktik dokter."
   }
 }
@@ -1456,12 +1462,12 @@ Response 200 OK:
 ---
 
 [PUT] /api/v1/settings/registration
-Deskripsi : Mengatur buka/tutup pendaftaran online dan kuota antrean harian.
+Deskripsi : Mengatur buka/tutup pendaftaran online. Saat isOpen=false, POST /appointments
+            ditolak (400) dengan noticeMessage dan formulir di website publik tidak ditampilkan.
 Akses     : Terproteksi (Super Admin, Admin)
 Request Body:
 {
-  "isOpen": true,
-  "maxDailyQuota": 60,
+  "isOpen": false,
   "noticeMessage": "Pendaftaran online untuk jadwal dokter hari libur nasional ditutup sementara."
 }
 Response 200 OK

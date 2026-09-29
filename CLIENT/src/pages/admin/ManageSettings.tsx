@@ -1,21 +1,24 @@
 import { useState, useEffect, useRef } from "react";
-import { Save, Globe, MapPin, Phone, Mail, Clock, Share2, Check, Loader2, Images, UploadCloud, Trash2, GripVertical } from "lucide-react";
+import { Save, Globe, MapPin, Phone, Mail, Clock, Share2, Check, Loader2, Images, UploadCloud, Trash2, GripVertical, Video, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useStore, AppSettings } from "@/store";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { api } from "@/app/api";
-import { alertSuccess, alertError, alertWarning, alertConfirm, extractApiErrorMessage } from "@/utils/alert";
+import { parseVideoSource } from "@/utils/video";
+import { alertSuccess, alertError, alertConfirm, extractApiErrorMessage } from "@/utils/alert";
 
 export default function ManageSettings() {
   const [activeTab, setActiveTab] = useState("general");
-  const { settings, setSettings, fetchSettings, media, fetchMedia } = useStore();
+  const { settings, fetchSettings, media, fetchMedia } = useStore();
   const [formData, setFormData] = useState<AppSettings>(settings);
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingSlide, setIsUploadingSlide] = useState(false);
   const slideFileInputRef = useRef<HTMLInputElement>(null);
+  const videoFileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
 
   useEffect(() => {
     fetchSettings();
@@ -39,15 +42,47 @@ export default function ManageSettings() {
       setTimeout(() => setIsSaved(false), 2500);
       await alertSuccess("Pengaturan berhasil disimpan");
     } catch (err) {
-      console.warn("API update settings failed, updating locally:", err);
-      setSettings(formData);
-      await alertWarning(
-        "Tersimpan sementara di perangkat ini",
+      // Pengaturan ini dipakai website publik, jadi harus tersimpan di server.
+      // Jangan disimpan lokal saja (terlihat berhasil padahal pengunjung tidak melihat perubahan).
+      console.warn("API update settings failed:", err);
+      await alertError(
+        "Pengaturan gagal disimpan",
         extractApiErrorMessage(err, "Server tidak dapat dihubungi. Perubahan belum tersimpan di database.")
       );
     }
     setIsSaving(false);
   };
+
+  // Unggah file video langsung (mp4/webm). Ukuran maksimum mengikuti UPLOAD_MAX_SIZE_MB di server.
+  const handleUploadVideo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("video/")) {
+      await alertError("File tidak didukung", "Hanya file video (MP4, WebM) yang dapat diunggah.");
+      if (videoFileInputRef.current) videoFileInputRef.current.value = "";
+      return;
+    }
+
+    setIsUploadingVideo(true);
+    try {
+      const res = await api.media.upload(file, "video", "Video profil Beranda");
+      if (res?.data?.url) {
+        setFormData((prev) => ({ ...prev, videoUrl: res.data.url }));
+        await alertSuccess("Video berhasil diunggah", "Klik \"Simpan Perubahan\" agar video tampil di Beranda.");
+      }
+    } catch (err) {
+      await alertError(
+        "Gagal mengunggah video",
+        extractApiErrorMessage(err, "Periksa ukuran file (batas server) dan koneksi Anda, lalu coba lagi.")
+      );
+    } finally {
+      setIsUploadingVideo(false);
+      if (videoFileInputRef.current) videoFileInputRef.current.value = "";
+    }
+  };
+
+  const videoSource = parseVideoSource(formData.videoUrl);
 
   const handleUploadSlide = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -98,6 +133,7 @@ export default function ManageSettings() {
     { id: 'location', label: 'Lokasi & Peta', icon: MapPin },
     { id: 'social', label: 'Sosial Media', icon: Share2 },
     { id: 'hero-slideshow', label: 'Slideshow Beranda', icon: Images },
+    { id: 'video', label: 'Video Profil', icon: Video },
   ];
 
   return (
@@ -131,8 +167,8 @@ export default function ManageSettings() {
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
                   className={`flex items-center gap-2 sm:gap-3 px-3.5 py-2 sm:py-2.5 text-xs sm:text-sm font-medium rounded-xl whitespace-nowrap transition-colors shrink-0 ${isActive
-                      ? 'bg-primary/10 text-primary font-bold'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    ? 'bg-primary/10 text-primary font-bold'
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                     }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
@@ -241,6 +277,18 @@ export default function ManageSettings() {
                       onChange={(e) => setFormData({ ...formData, mapsEmbed: e.target.value })}
                     ></textarea>
                   </div>
+                  <div className="space-y-2 pt-2 border-t border-slate-100">
+                    <Label>Gambar Peta (tampil di Beranda)</Label>
+                    <ImageUpload
+                      value={formData.mapsImageUrl ?? ""}
+                      onChange={(val) => setFormData({ ...formData, mapsImageUrl: val })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Gambar latar pada kartu lokasi di bagian Kontak Beranda. Disarankan tangkapan layar peta lokasi
+                      rumah sakit (rasio lanskap, mis. 1200×600). Kosongkan untuk memakai gambar default. Tombol
+                      &quot;Buka di Google Maps&quot; tetap menggunakan Tautan Google Maps di atas.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
@@ -328,6 +376,104 @@ export default function ManageSettings() {
                 <p className="text-xs text-slate-400">
                   Tips: gunakan gambar beresolusi tinggi dengan rasio 1:1 atau 4:5 agar terlihat optimal pada Hero Section. Urutan tampil mengikuti urutan unggah.
                   Gambar yang sama juga dapat dikelola lewat menu <strong>Media Library</strong> (filter "Slideshow").
+                </p>
+              </div>
+            )}
+
+            {activeTab === 'video' && (
+              <div className="space-y-6">
+                <h3 className="text-lg font-bold font-heading border-b border-slate-100 pb-3">Video Profil Beranda</h3>
+                <p className="text-xs text-slate-500 -mt-3">
+                  Video pada bagian &quot;Mengenal Kami — Tur Fasilitas &amp; Edukasi Medis&quot; di halaman Beranda.
+                  Bagian ini disembunyikan sampai URL video diisi.
+                </p>
+
+                <div className="space-y-4 max-w-2xl">
+                  <div className="space-y-2">
+                    <Label>URL Video</Label>
+                    <Input
+                      value={formData.videoUrl ?? ""}
+                      onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
+                      placeholder="https://www.youtube.com/watch?v=..."
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Tempel tautan YouTube (watch, youtu.be, shorts) atau tautan langsung file video (.mp4 / .webm).
+                    </p>
+
+                    {formData.videoUrl?.trim() ? (
+                      videoSource ? (
+                        <p className="text-xs font-medium flex items-center gap-1.5 text-emerald-700">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          {videoSource.kind === "youtube" && "Video YouTube terdeteksi."}
+                          {videoSource.kind === "file" && "File video langsung terdeteksi."}
+                          {videoSource.kind === "external" && "Tautan eksternal — akan dibuka di tab baru (tidak dapat diputar di dalam halaman)."}
+                        </p>
+                      ) : (
+                        <p className="text-xs font-medium flex items-center gap-1.5 text-rose-600">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          URL tidak valid. Gunakan tautan lengkap yang diawali https://
+                        </p>
+                      )
+                    ) : null}
+
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <input
+                        type="file"
+                        accept="video/mp4,video/webm"
+                        ref={videoFileInputRef}
+                        className="hidden"
+                        onChange={handleUploadVideo}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => videoFileInputRef.current?.click()}
+                        disabled={isUploadingVideo}
+                        className="gap-2 rounded-xl"
+                      >
+                        {isUploadingVideo ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
+                        Unggah File Video
+                      </Button>
+                      {formData.videoUrl && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => setFormData({ ...formData, videoUrl: "" })}
+                          className="gap-2 rounded-xl text-rose-600 hover:text-rose-700"
+                        >
+                          <Trash2 className="w-4 h-4" /> Hapus Video
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      Ukuran unggahan dibatasi server (default 5 MB). Untuk video besar, unggah ke YouTube lalu tempel tautannya.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Judul Video</Label>
+                    <Input
+                      value={formData.videoTitle ?? ""}
+                      onChange={(e) => setFormData({ ...formData, videoTitle: e.target.value })}
+                      placeholder={`Company Profile ${formData.hospitalName || "RSIA Sayang Ibu Batusangkar"}`}
+                    />
+                    <p className="text-xs text-muted-foreground">Kosongkan untuk memakai judul default.</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Thumbnail Video (opsional)</Label>
+                    <ImageUpload
+                      value={formData.videoThumbnailUrl ?? ""}
+                      onChange={(val) => setFormData({ ...formData, videoThumbnailUrl: val })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Untuk video YouTube, thumbnail otomatis dipakai jika dikosongkan. Rasio disarankan 16:9.
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-400">
+                  Klik <strong>Simpan Perubahan</strong> di bagian atas halaman agar perubahan tampil di website publik.
                 </p>
               </div>
             )}
