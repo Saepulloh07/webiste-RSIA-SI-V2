@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, CheckCircle2, AlertCircle } from "lucide-react";
+import { Calendar, CheckCircle2, AlertCircle, Loader2, Lock } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useStore } from "@/store";
 import { api } from "@/app/api";
@@ -30,14 +30,34 @@ export default function Appointment() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [refNumber, setRefNumber] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Status pendaftaran selalu diambil dari server setiap halaman dibuka. Selama
+  // belum selesai, formulir TIDAK ditampilkan (sebelumnya nilai lama dari
+  // localStorage / default `isOpen: true` membuat formulir sempat terbuka).
+  const [isCheckingStatus, setIsCheckingStatus] = useState(true);
+
+  const refreshRegistrationStatus = useCallback(async () => {
+    try {
+      const res = await api.settings.getRegistration();
+      if (res?.data) setRegistrationSettings(res.data);
+    } catch {
+      // Server tidak terjangkau: pakai pengaturan terakhir yang tersimpan.
+    }
+  }, [setRegistrationSettings]);
+
+  useEffect(() => {
+    let active = true;
+    refreshRegistrationStatus().finally(() => {
+      if (active) setIsCheckingStatus(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [refreshRegistrationStatus]);
 
   useEffect(() => {
     if (doctors.length === 0) fetchDoctors();
     if (services.length === 0) fetchServices();
-    api.settings.getRegistration().then((res) => {
-      if (res?.data) setRegistrationSettings(res.data);
-    }).catch(() => {});
-  }, [doctors.length, services.length, fetchDoctors, fetchServices, setRegistrationSettings]);
+  }, [doctors.length, services.length, fetchDoctors, fetchServices]);
 
   const {
     register,
@@ -49,6 +69,7 @@ export default function Appointment() {
 
   const onSubmit = async (data: AppointmentFormValues) => {
     setSubmitError(null);
+    if (!registrationSettings.isOpen) return; // pengaman tambahan: formulir tidak boleh terkirim saat ditutup
     const selectedDoc = doctors.find((d) => d.id === data.doctorId);
     const selectedServ = services.find((s) => s.id === data.serviceId);
 
@@ -71,12 +92,17 @@ export default function Appointment() {
       addAppointment(registered);
       setIsSuccess(true);
     } catch (err: any) {
-      console.warn("Failed posting appointment to server, using local fallback:", err);
-      // If error came from validation (e.g. registration closed)
-      if (err.status === 400 && err.message) {
-        setSubmitError(err.message);
+      console.warn("Failed posting appointment to server:", err);
+      // Server merespons dengan penolakan (mis. pendaftaran baru saja ditutup
+      // admin, atau validasi gagal): tampilkan pesannya dan segarkan status.
+      // Jangan pernah membuat pendaftaran "palsu" secara lokal untuk kasus ini.
+      if (err?.status) {
+        await refreshRegistrationStatus();
+        setSubmitError(err.message || "Pendaftaran tidak dapat diproses. Silakan coba lagi.");
         return;
       }
+      // Hanya jika server benar-benar tidak terjangkau (error jaringan) yang
+      // jatuh ke fallback lokal di bawah ini.
 
       const fallbackRef = `REG-${Math.floor(100000 + Math.random() * 900000)}`;
       setRefNumber(fallbackRef);
@@ -99,19 +125,31 @@ export default function Appointment() {
     }
   };
 
+  if (isCheckingStatus) {
+    return (
+      <div className="container mx-auto px-4 py-16 max-w-2xl min-h-[70vh] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-slate-500" role="status" aria-live="polite">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-sm">Memeriksa status pendaftaran online...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!registrationSettings.isOpen) {
     return (
       <div className="container mx-auto px-4 py-16 max-w-2xl min-h-[70vh] flex items-center justify-center">
-        <Card className="w-full text-center p-8 border-slate-200 shadow-xl">
-          <div className="mx-auto w-16 h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mb-6">
-            <AlertCircle className="w-8 h-8" />
+        <Card className="w-full text-center p-8 border-slate-200 shadow-xl" role="alert">
+          <div className="mx-auto w-16 h-16 bg-rose-50 text-primary rounded-full flex items-center justify-center mb-6">
+            <Lock className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-bold font-heading mb-2">Pendaftaran Online Ditutup</h2>
+          <h2 className="text-2xl font-bold font-heading mb-2">Pendaftaran Online Sedang Ditutup</h2>
           <p className="text-muted-foreground mb-6">
-            Mohon maaf, formulir pendaftaran online saat ini sedang ditutup.
+            Mohon maaf, layanan pendaftaran online saat ini sedang ditutup. Silakan kembali lagi nanti
+            atau hubungi kami secara langsung untuk informasi lebih lanjut.
           </p>
           {registrationSettings.noticeMessage && (
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 mb-8 text-sm">
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 mb-8 text-sm whitespace-pre-line">
               <p>{registrationSettings.noticeMessage}</p>
             </div>
           )}
@@ -168,7 +206,13 @@ export default function Appointment() {
         </CardHeader>
         <CardContent className="p-6 md:p-8">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-            
+            {submitError && (
+              <div role="alert" className="bg-rose-50 border border-rose-200 text-rose-800 rounded-lg p-4 flex gap-3 text-sm">
+                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                <p>{submitError}</p>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Patient Name */}
               <div className="space-y-2">

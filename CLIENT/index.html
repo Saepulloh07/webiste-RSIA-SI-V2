@@ -34,6 +34,41 @@
       })();
     </script>
     
+    <!--
+      DEV ONLY: hapus Service Worker & cache lama di localhost.
+      Service Worker dari proyek lain (mis. vite-plugin-pwa) yang pernah berjalan
+      di origin yang sama bisa menyajikan HTML lama sehingga muncul error:
+      - 404 /@vite-plugin-pwa/pwa-entry-point-loaded
+      - "@vitejs/plugin-react can't detect preamble"
+    -->
+    <script>
+      (function () {
+        var h = location.hostname;
+        var isLocal = h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0' || h === '::1';
+        if (!isLocal) return;
+        try {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function (regs) {
+              var hadSW = regs.length > 0;
+              return Promise.all(regs.map(function (r) { return r.unregister(); })).then(function () {
+                if ('caches' in window) {
+                  return caches.keys().then(function (keys) {
+                    return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+                  });
+                }
+              }).then(function () {
+                // Muat ulang sekali agar HTML segar dari Vite yang dipakai
+                if (hadSW && !sessionStorage.getItem('sw-cleaned')) {
+                  sessionStorage.setItem('sw-cleaned', '1');
+                  location.reload();
+                }
+              });
+            });
+          }
+        } catch (e) {}
+      })();
+    </script>
+
     <!-- Primary SEO Meta Tags -->
     <title>RSIA Sayang Ibu Batusangkar - Rumah Sakit Ibu & Anak Terbaik Tanah Datar</title>
     <meta name="description" content="RSIA Sayang Ibu Batusangkar adalah rumah sakit ibu dan anak terbaik di Kabupaten Tanah Datar, Sumatera Barat. Layanan dokter spesialis kandungan (obgyn), spesialis anak, persalinan caesar ERACS, USG 4D fetomaternal, dan IGD 24 Jam siaga." />
@@ -145,5 +180,3 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-
-

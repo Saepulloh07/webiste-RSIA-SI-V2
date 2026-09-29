@@ -372,8 +372,8 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
-    getRegistration: () => request<{ isOpen: boolean; maxDailyQuota: number; noticeMessage?: string }>('settings/registration'),
-    updateRegistration: (data: { isOpen: boolean; maxDailyQuota: number; noticeMessage?: string }) =>
+    getRegistration: () => request<{ isOpen: boolean; noticeMessage?: string }>('settings/registration'),
+    updateRegistration: (data: { isOpen: boolean; noticeMessage?: string }) =>
       request('settings/registration', {
         method: 'PUT',
         body: JSON.stringify(data),

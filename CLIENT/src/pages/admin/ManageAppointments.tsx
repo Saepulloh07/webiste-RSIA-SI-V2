@@ -24,10 +24,24 @@ export default function ManageAppointments() {
     api.settings.getRegistration().then((res) => {
       if (res?.data) {
         setRegistrationSettings(res.data);
-        setTempSettings(res.data);
+        setTempSettings({
+          isOpen: !!res.data.isOpen,
+          noticeMessage: res.data.noticeMessage ?? "",
+        });
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, [fetchAppointments, setRegistrationSettings]);
+
+  // Setiap panel pengaturan dibuka (atau nilai di store berubah), samakan form
+  // sementara dengan pengaturan yang tersimpan agar tidak menampilkan data basi.
+  useEffect(() => {
+    if (isSettingsOpen) {
+      setTempSettings({
+        isOpen: registrationSettings.isOpen,
+        noticeMessage: registrationSettings.noticeMessage ?? "",
+      });
+    }
+  }, [isSettingsOpen, registrationSettings.isOpen, registrationSettings.noticeMessage]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -38,18 +52,37 @@ export default function ManageAppointments() {
 
   const handleSaveSettings = async () => {
     try {
-      await api.settings.updateRegistration(tempSettings);
-      await alertSuccess("Pengaturan pendaftaran disimpan");
-    } catch (e) {
-      console.warn("Failed saving registration settings to API, saving locally:", e);
-      await alertWarning("Tersimpan secara lokal", "Server tidak dapat dihubungi. Perubahan disimpan di browser.");
+      // Kirim HANYA field yang masih dipakai. Pengaturan ini harus tersimpan di
+      // server agar berlaku untuk semua pengunjung — jika gagal, jangan
+      // disimpan lokal (sebelumnya terlihat "berhasil" padahal pengunjung lain
+      // tetap bisa mengakses formulir).
+      const res = await api.settings.updateRegistration({
+        isOpen: tempSettings.isOpen,
+        noticeMessage: tempSettings.noticeMessage ?? "",
+      });
+      const saved = res?.data as { isOpen?: boolean; noticeMessage?: string } | undefined;
+      setRegistrationSettings({
+        isOpen: saved?.isOpen ?? tempSettings.isOpen,
+        noticeMessage: saved?.noticeMessage ?? tempSettings.noticeMessage ?? "",
+      });
+      await alertSuccess(
+        tempSettings.isOpen ? "Pendaftaran online DIBUKA" : "Pendaftaran online DITUTUP",
+        tempSettings.isOpen
+          ? "Formulir pendaftaran dapat diakses pengunjung."
+          : "Pengunjung akan melihat pesan bahwa layanan pendaftaran online sedang ditutup."
+      );
+      setSavedFeedback(true);
+      setTimeout(() => {
+        setSavedFeedback(false);
+        setIsSettingsOpen(false);
+      }, 1200);
+    } catch (e: any) {
+      console.warn("Failed saving registration settings to API:", e);
+      await alertError(
+        "Pengaturan gagal disimpan",
+        e?.message || "Server tidak dapat dihubungi. Perubahan belum berlaku di website publik."
+      );
     }
-    setRegistrationSettings(tempSettings);
-    setSavedFeedback(true);
-    setTimeout(() => {
-      setSavedFeedback(false);
-      setIsSettingsOpen(false);
-    }, 1200);
   };
 
   const handleStatusChange = async (id: string, status: Appointment["status"]) => {
@@ -112,12 +145,12 @@ export default function ManageAppointments() {
           <p className="text-xs sm:text-sm text-slate-500">Kelola antrean pasien dan pengaturan form pendaftaran publik.</p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="w-full sm:w-auto gap-2 bg-white border-slate-200 rounded-xl shadow-2xs font-semibold"
             onClick={() => setIsSettingsOpen(!isSettingsOpen)}
           >
-            <Settings className="w-4 h-4 text-slate-500" /> 
+            <Settings className="w-4 h-4 text-slate-500" />
             <span>{isSettingsOpen ? "Tutup Pengaturan" : "Pengaturan Form"}</span>
           </Button>
         </div>
@@ -142,34 +175,27 @@ export default function ManageAppointments() {
                   <Label className="text-sm sm:text-base font-semibold text-slate-900 block">Status Pendaftaran Online</Label>
                   <p className="text-xs text-slate-500 mt-0.5">Buka atau tutup akses formulir pendaftaran di website publik.</p>
                 </div>
-                <button 
+                <button
                   type="button"
-                  onClick={() => setTempSettings({...tempSettings, isOpen: !tempSettings.isOpen})}
+                  role="switch"
+                  aria-checked={tempSettings.isOpen}
+                  aria-label="Status Pendaftaran Online"
+                  onClick={() => setTempSettings({ ...tempSettings, isOpen: !tempSettings.isOpen })}
                   className={`relative flex items-center w-12 h-6.5 rounded-full transition-colors shrink-0 p-0.5 ${tempSettings.isOpen ? 'bg-emerald-500' : 'bg-slate-300'}`}
                 >
                   <div className={`w-5 h-5 bg-white rounded-full shadow-md transition-transform ${tempSettings.isOpen ? 'translate-x-5.5' : 'translate-x-0'}`} />
                 </button>
               </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Kuota Maksimal Harian</Label>
-                <Input 
-                  type="number" 
-                  className="h-10 rounded-xl"
-                  value={tempSettings.maxDailyQuota} 
-                  onChange={(e) => setTempSettings({...tempSettings, maxDailyQuota: parseInt(e.target.value) || 0})}
-                />
-              </div>
             </div>
-            
+
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-slate-700">Pesan Pengumuman / Catatan di Form</Label>
-                <textarea 
+                <textarea
                   className="flex w-full rounded-xl border border-slate-200 bg-white p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 custom-scrollbar"
                   rows={3}
-                  value={tempSettings.noticeMessage}
-                  onChange={(e) => setTempSettings({...tempSettings, noticeMessage: e.target.value})}
+                  value={tempSettings.noticeMessage ?? ""}
+                  onChange={(e) => setTempSettings({ ...tempSettings, noticeMessage: e.target.value })}
                   placeholder="Misal: Harap hadir 30 menit sebelum jadwal dokter..."
                 ></textarea>
               </div>
@@ -187,8 +213,8 @@ export default function ManageAppointments() {
         <div className="p-3.5 sm:p-4 border-b border-slate-200/80 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-slate-50/50">
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input 
-              placeholder="Cari pasien, antrean, dokter..." 
+            <Input
+              placeholder="Cari pasien, antrean, dokter..."
               className="pl-9 h-9.5 bg-white text-sm rounded-xl"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -226,8 +252,8 @@ export default function ManageAppointments() {
                       <span className="truncate">{apt.doctorName || apt.doctorId}</span>
                     </p>
                   </div>
-                  <Badge 
-                    variant={apt.status === 'Selesai' ? 'default' : apt.status === 'Batal' ? 'destructive' : apt.status === 'Dikonfirmasi' ? 'outline' : 'secondary'} 
+                  <Badge
+                    variant={apt.status === 'Selesai' ? 'default' : apt.status === 'Batal' ? 'destructive' : apt.status === 'Dikonfirmasi' ? 'outline' : 'secondary'}
                     className="shrink-0 text-[10px]"
                   >
                     {apt.status}
@@ -239,9 +265,9 @@ export default function ManageAppointments() {
                     <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5 text-slate-400" /> {apt.date}</span>
                     {apt.time && <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5 text-slate-400" /> {apt.time}</span>}
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="h-7 px-2.5 text-xs rounded-lg border-slate-200 text-primary"
                     onClick={() => setSelectedAppointment(apt)}
                   >
@@ -296,9 +322,9 @@ export default function ManageAppointments() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1.5">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
+                        <Button
+                          variant="outline"
+                          size="sm"
                           className="h-8 px-3 rounded-lg text-xs"
                           onClick={() => setSelectedAppointment(apt)}
                         >

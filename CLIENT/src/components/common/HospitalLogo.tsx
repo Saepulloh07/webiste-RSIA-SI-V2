@@ -1,4 +1,3 @@
-import React from "react";
 import { Link } from "react-router-dom";
 import { useStore } from "@/store";
 
@@ -44,8 +43,12 @@ export function HospitalLogo({
           width="48"
           height="50"
           onError={(e) => {
-            // Fallback to logo.png if needed
-            (e.target as HTMLImageElement).src = "/logo.png";
+            // Fallback ke logo.png (sekali saja, hindari loop tak terbatas)
+            const img = e.currentTarget;
+            if (!img.dataset.fallback) {
+              img.dataset.fallback = "1";
+              img.src = "/logo.png";
+            }
           }}
         />
       </div>

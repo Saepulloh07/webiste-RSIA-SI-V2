@@ -73,12 +73,10 @@ export class SettingsService {
 
   private toRegistrationResponse(setting: {
     isOpen: boolean;
-    maxDailyQuota: number;
     noticeMessage: string | null;
   }) {
     return {
       isOpen: setting.isOpen,
-      maxDailyQuota: setting.maxDailyQuota,
       noticeMessage: setting.noticeMessage ?? '',
     };
   }

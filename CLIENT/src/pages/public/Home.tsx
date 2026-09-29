@@ -164,7 +164,7 @@ export default function Home() {
               transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}
               className="relative mx-auto lg:ml-auto w-full max-w-[320px] sm:max-w-md lg:max-w-none aspect-[4/5] lg:aspect-square mt-6 lg:mt-0 group"
             >
-              <div className="absolute inset-0 bg-gradient-to-tr from-rose-100 to-amber-100 rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white relative z-10 flex items-center justify-center">
+              <div className="absolute inset-0 bg-gradient-to-tr from-rose-100 to-amber-100 rounded-[2.5rem] overflow-hidden shadow-2xl border-4 border-white z-10 flex items-center justify-center">
                 {/* Slideshow gambar Beranda — gambar diatur dari CMS (Pengaturan
                     Web → Slideshow Beranda / Media Library, tipe "slideshow").
                     Beberapa gambar ditumpuk lalu di-crossfade otomatis. */}

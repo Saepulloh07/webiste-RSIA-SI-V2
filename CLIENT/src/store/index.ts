@@ -99,7 +99,6 @@ export type AppSettings = {
 
 export type RegistrationSettings = {
   isOpen: boolean;
-  maxDailyQuota: number;
   noticeMessage?: string;
 };
 
@@ -205,7 +204,6 @@ const initialSettings: AppSettings = {
 
 const initialRegistrationSettings: RegistrationSettings = {
   isOpen: true,
-  maxDailyQuota: 50,
   noticeMessage: ""
 };
 
@@ -241,7 +239,15 @@ export const useStore = create<AppState>()(
         appointments: state.appointments.filter(a => a.id !== id)
       })),
       setSettings: (settings) => set({ settings: { ...initialSettings, ...settings } }),
-      setRegistrationSettings: (registrationSettings) => set({ registrationSettings: { ...initialRegistrationSettings, ...registrationSettings } }),
+      // Hanya ambil field yang dikenal (isOpen & noticeMessage). Field lama seperti
+      // `maxDailyQuota` yang mungkin masih tersimpan di localStorage/response server
+      // sengaja dibuang karena batasan kuota harian sudah dihapus.
+      setRegistrationSettings: (registrationSettings) => set({
+        registrationSettings: {
+          isOpen: registrationSettings?.isOpen ?? initialRegistrationSettings.isOpen,
+          noticeMessage: registrationSettings?.noticeMessage ?? initialRegistrationSettings.noticeMessage,
+        },
+      }),
 
       fetchInitialData: async () => {
         set({ isLoading: true });
