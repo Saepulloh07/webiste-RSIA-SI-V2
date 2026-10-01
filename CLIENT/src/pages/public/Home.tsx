@@ -5,7 +5,7 @@ import {
   ArrowRight, Stethoscope, Clock, ShieldCheck,
   Activity, Baby, HeartPulse, MapPin,
   Phone, Mail, Calendar, Play, Sparkles, Tag, Gift,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, X, CheckCircle2, MessageCircle
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useStore } from "@/store";
@@ -59,6 +59,26 @@ export default function Home() {
   const activeDoctors = doctors.filter(d => d.status === 'Aktif').slice(0, 4);
   const displayServices = (services || []).filter(s => s.status === 'Aktif').slice(0, 3);
   const activeAds = (ads || []).filter(a => a.status === 'Aktif');
+  const [showPromoPopup, setShowPromoPopup] = useState(true);
+  const [currentPromoIndex, setCurrentPromoIndex] = useState(0);
+  const currentPromo = activeAds[currentPromoIndex] || activeAds[0];
+
+  // Disable body scroll when promo popup is active & handle Escape key
+  useEffect(() => {
+    if (showPromoPopup && activeAds.length > 0) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") setShowPromoPopup(false);
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => {
+        document.body.style.overflow = prevOverflow;
+        window.removeEventListener("keydown", handleKeyDown);
+      };
+    }
+  }, [showPromoPopup, activeAds.length]);
+
   const hasVideo = !!parseVideoSource(settings.videoUrl);
 
   // Gambar hero beranda kini berupa SLIDESHOW yang diatur langsung dari CMS
@@ -341,34 +361,212 @@ export default function Home() {
         </motion.div>
       </section>
 
-      {/* Featured Promo Banner from CMS (if active) */}
-      {activeAds.length > 0 && (
-        <section className="py-6 container mx-auto px-4 md:px-6">
-          <div className="bg-gradient-to-r from-rose-500 via-primary to-amber-500 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
-            <div className="relative z-10 max-w-2xl text-center md:text-left">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-amber-200 text-xs font-semibold mb-3 border border-white/20">
-                <Gift className="w-3.5 h-3.5 text-amber-300" />
-                <span>{activeAds[0].badge || "Promo Spesial"}</span>
-              </div>
-              <h3 className="text-xl md:text-3xl font-bold font-heading mb-2 leading-tight">
-                {activeAds[0].title}
-              </h3>
-              <p className="text-white/90 text-xs md:text-sm line-clamp-2 max-w-xl">
-                {activeAds[0].content}
-              </p>
-            </div>
-            <div className="relative z-10 shrink-0">
-              <Link
-                to={`/promo/${activeAds[0].slug || activeAds[0].id}`}
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full bg-white text-primary font-bold text-sm hover:bg-amber-50 transition-all shadow-lg hover:scale-105"
+      {/* Professional Promotional Popup Modal (Triggered on visit when active ads exist) */}
+      <AnimatePresence>
+        {activeAds.length > 0 && showPromoPopup && currentPromo && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+            {/* Backdrop / Dimmer with blur */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              onClick={() => setShowPromoPopup(false)}
+              className="fixed inset-0 bg-slate-950/70 backdrop-blur-md"
+              aria-hidden="true"
+            />
+
+            {/* Modal Dialog Card */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ type: "spring", damping: 25, stiffness: 320 }}
+              className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl overflow-hidden border border-white/20 z-10 my-auto flex flex-col max-h-[90vh]"
+              role="dialog"
+              aria-modal="true"
+              aria-label={currentPromo.title || "Iklan Promosi"}
+            >
+              {/* Close Button at top-right corner */}
+              <button
+                type="button"
+                onClick={() => setShowPromoPopup(false)}
+                className="absolute top-3.5 right-3.5 z-30 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-900/60 hover:bg-slate-950 text-white flex items-center justify-center backdrop-blur-md border border-white/20 shadow-lg hover:scale-105 active:scale-95 transition-all group focus:outline-none focus:ring-2 focus:ring-primary"
+                aria-label="Tutup Iklan Promosi"
               >
-                Lihat Detail Promo <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
+                <X className="w-5 h-5 text-white/90 group-hover:text-white transition-colors" />
+              </button>
+
+              {/* Scrollable Container if screen is small */}
+              <div className="overflow-y-auto">
+                {/* Visual Header / Banner */}
+                {currentPromo.image ? (
+                  <div className="relative h-48 sm:h-56 w-full overflow-hidden bg-slate-100 group">
+                    <img
+                      src={currentPromo.image}
+                      alt={currentPromo.title}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/30 to-transparent pointer-events-none" />
+                    
+                    {/* Top badges */}
+                    <div className="absolute top-3.5 left-3.5 z-10 flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/90 backdrop-blur-md text-white text-xs font-bold shadow-md border border-white/20">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                        {currentPromo.badge || "Promo Spesial"}
+                      </span>
+                    </div>
+
+                    {/* Bottom overlay text */}
+                    <div className="absolute bottom-3 left-4 right-4 z-10 text-white">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-300">RSIA Sayang Ibu Batusangkar</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gradient-to-br from-rose-500 via-primary to-amber-500 p-6 sm:p-8 text-white relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/4 pointer-events-none" />
+                    <div className="relative z-10">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-amber-200 text-xs font-semibold mb-3 border border-white/20">
+                        <Gift className="w-3.5 h-3.5 text-amber-300" />
+                        <span>{currentPromo.badge || "Promo Spesial"}</span>
+                      </div>
+                      <p className="text-xs font-medium uppercase tracking-wider text-white/80">RSIA Sayang Ibu Batusangkar</p>
+                      <h4 className="text-xl sm:text-2xl font-bold font-heading mt-1 leading-tight text-white drop-shadow-sm">
+                        {currentPromo.title}
+                      </h4>
+                    </div>
+                  </div>
+                )}
+
+                {/* Content Body */}
+                <div className="p-5 sm:p-7 space-y-4">
+                  {/* If image exists, render title here */}
+                  {currentPromo.image && (
+                    <div>
+                      <h4 className="text-xl sm:text-2xl font-bold font-heading text-slate-900 leading-tight">
+                        {currentPromo.title}
+                      </h4>
+                    </div>
+                  )}
+
+                  {/* Promo Description */}
+                  <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
+                    {currentPromo.content}
+                  </p>
+
+                  {/* Pricing Section (if provided) */}
+                  {(currentPromo.price || currentPromo.originalPrice) && (
+                    <div className="bg-gradient-to-r from-rose-50/80 to-amber-50/80 border border-rose-100/80 rounded-2xl p-3.5 sm:p-4 flex items-center justify-between">
+                      <div>
+                        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Harga Spesial</span>
+                        <div className="flex items-baseline gap-2 mt-0.5">
+                          {currentPromo.price && (
+                            <span className="text-xl sm:text-2xl font-extrabold text-primary font-heading">
+                              {currentPromo.price}
+                            </span>
+                          )}
+                          {currentPromo.originalPrice && (
+                            <span className="text-xs sm:text-sm text-slate-400 line-through">
+                              {currentPromo.originalPrice}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-600 font-bold text-xs border border-rose-200/50">
+                        Hemat & Terjangkau
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Highlights Bullet Points */}
+                  {currentPromo.highlights && currentPromo.highlights.length > 0 && (
+                    <div className="space-y-2 pt-1">
+                      {currentPromo.highlights.slice(0, 3).map((item, idx) => (
+                        <div key={idx} className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-700">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                          <span>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Validity Info */}
+                  {currentPromo.endDate && (
+                    <div className="flex items-center gap-1.5 text-xs text-slate-500 pt-1">
+                      <Clock className="w-3.5 h-3.5 text-primary shrink-0" />
+                      <span>Periode Promo sampai <strong>{currentPromo.endDate}</strong></span>
+                    </div>
+                  )}
+
+                  {/* Multi-ad Navigation Dots (if > 1 ad) */}
+                  {activeAds.length > 1 && (
+                    <div className="flex items-center justify-center gap-2 pt-2 pb-1">
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPromoIndex((prev) => (prev > 0 ? prev - 1 : activeAds.length - 1))}
+                        className="p-1 rounded-full text-slate-400 hover:text-slate-700 transition-colors"
+                        aria-label="Promo Sebelumnya"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <div className="flex items-center gap-1.5">
+                        {activeAds.map((_, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setCurrentPromoIndex(idx)}
+                            className={`h-2 rounded-full transition-all ${idx === currentPromoIndex ? "w-6 bg-primary" : "w-2 bg-slate-200 hover:bg-slate-300"}`}
+                            aria-label={`Lihat Promo ${idx + 1}`}
+                          />
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPromoIndex((prev) => (prev < activeAds.length - 1 ? prev + 1 : 0))}
+                        className="p-1 rounded-full text-slate-400 hover:text-slate-700 transition-colors"
+                        aria-label="Promo Berikutnya"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="pt-2 flex flex-col sm:flex-row items-center gap-2.5">
+                    <Link
+                      to={`/promo/${currentPromo.slug || currentPromo.id}`}
+                      onClick={() => setShowPromoPopup(false)}
+                      className="w-full sm:flex-1 inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-primary via-rose-600 to-amber-600 text-white font-bold text-sm shadow-md hover:shadow-xl shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                    >
+                      Lihat Detail Promo <ArrowRight className="w-4 h-4" />
+                    </Link>
+
+                    {currentPromo.contactWa ? (
+                      <a
+                        href={`https://wa.me/${currentPromo.contactWa.replace(/\D/g, "")}?text=${encodeURIComponent(`Halo RSIA Sayang Ibu, saya tertarik dengan informasi promo: ${currentPromo.title}`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-sm border border-emerald-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                      >
+                        <MessageCircle className="w-4 h-4 text-emerald-600" />
+                        <span>Tanya WA</span>
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowPromoPopup(false)}
+                        className="w-full sm:w-auto px-4 py-3 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 text-sm font-medium transition-colors"
+                      >
+                        Nanti Saja
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
           </div>
-        </section>
-      )}
+        )}
+      </AnimatePresence>
 
       {/* Services Snippet section (Dynamic from CMS) */}
       <section className="py-16 md:py-24 relative bg-gradient-to-b from-transparent via-rose-50/20 to-transparent">
