@@ -83,7 +83,7 @@ model Service {
   category          String        @db.VarChar(100)
   status            ServiceStatus @default(AKTIF)
   description       String        @db.Text
-  imageUrl          String?       @map("image_url") @db.Text
+  imageUrl          String?       @map("image_url") @db.LongText
   facilities        Json?
   operationalHours  String?       @map("operational_hours") @db.VarChar(150)
   createdAt         DateTime      @default(now()) @map("created_at")
@@ -111,7 +111,7 @@ model Article {
   status    ArticleStatus @default(DRAFT)
   author    String        @default("Tim Medis RSIA Sayang Ibu") @db.VarChar(100)
   content   String        @db.LongText
-  imageUrl  String?       @map("image_url") @db.Text
+  imageUrl  String?       @map("image_url") @db.LongText
   tags      Json?
   createdAt DateTime      @default(now()) @map("created_at")
   updatedAt DateTime      @updatedAt @map("updated_at")
@@ -140,8 +140,8 @@ model AdCampaign {
   startDate      DateTime         @map("start_date") @db.Date
   endDate        DateTime         @map("end_date") @db.Date
   status         AdCampaignStatus @default(DRAFT)
-  content        String           @db.Text
-  imageUrl       String?          @map("image_url") @db.Text
+  content        String           @db.LongText
+  imageUrl       String?          @map("image_url") @db.LongText
   highlights     Json?
   targetKeywords String?          @map("target_keywords") @db.Text
   contactWa      String?          @map("contact_wa") @db.VarChar(50)

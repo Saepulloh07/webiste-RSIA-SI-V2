@@ -11,8 +11,15 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: false });
+  const app = await NestFactory.create(AppModule, {
+    cors: false,
+    bodyParser: false,
+  });
   const config = app.get(ConfigService);
+
+  // Body parser with 50mb limit (accommodates base64 images and large rich text)
+  app.use(express.json({ limit: '5mb' }));
+  app.use(express.urlencoded({ limit: '5mb', extended: true }));
 
   const apiPrefix = config.get<string>('app.apiPrefix') ?? 'api/v1';
   app.setGlobalPrefix(apiPrefix, {

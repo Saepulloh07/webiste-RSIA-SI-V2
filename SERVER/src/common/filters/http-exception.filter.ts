@@ -42,6 +42,15 @@ export class HttpExceptionFilter implements ExceptionFilter {
       return;
     }
 
+    const err = exception as any;
+    if (err?.name === 'PayloadTooLargeError' || err?.type === 'entity.too.large' || err?.status === 413) {
+      response.status(HttpStatus.PAYLOAD_TOO_LARGE).json({
+        success: false,
+        message: 'Ukuran data atau file terlalu besar (maksimal 50MB). Silakan kurangi ukuran atau gunakan gambar dengan kompresi yang lebih kecil.',
+      });
+      return;
+    }
+
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Terjadi kesalahan pada server.';
     let errors: Record<string, string[]> | null = null;

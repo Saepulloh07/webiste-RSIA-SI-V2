@@ -94,6 +94,12 @@ export default defineConfig(() => {
       hmr: {
         overlay: true,
       },
+      proxy: {
+        '/uploads': {
+          target: 'http://localhost:5000',
+          changeOrigin: true,
+        },
+      },
     },
     build: {
       cssMinify: true,

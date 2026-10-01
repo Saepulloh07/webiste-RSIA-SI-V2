@@ -14,10 +14,21 @@ import { DoctorCard } from "@/components/cards/DoctorCard";
 import { SEOHead } from "@/components/common/SEOHead";
 import { VideoShowcase } from "@/components/common/Videoshowcase";
 import { parseVideoSource } from "@/utils/video";
+import { SERVER_BASE_URL } from "@/app/api";
 
 const DEFAULT_HERO_IMAGE = "https://images.unsplash.com/photo-1538108149393-fbbd81895907?q=80&w=1000&auto=format&fit=crop";
 const DEFAULT_MAPS_IMAGE = "https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=1200&auto=format&fit=crop";
+const DEFAULT_PROMO_IMAGE = "https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=800&q=80";
 const HERO_SLIDE_INTERVAL_MS = 5000;
+
+function resolveImageUrl(url?: string): string {
+  if (!url || typeof url !== "string" || !url.trim()) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
+    return url;
+  }
+  const cleanPath = url.startsWith("/") ? url : `/${url}`;
+  return `${SERVER_BASE_URL.replace(/\/$/, "")}${cleanPath}`;
+}
 
 /**
  * Gambar layanan pada kartu "Layanan Kami". Memakai gambar yang diunggah admin
@@ -49,19 +60,29 @@ function ServiceCardImage({ src, alt, index }: { src?: string; alt: string; inde
 }
 
 export default function Home() {
-  const { articles, settings, media, services, doctors, ads, fetchSettings, fetchMedia } = useStore();
+  const { articles, settings, media, services, doctors, ads, fetchSettings, fetchMedia, fetchAds } = useStore();
 
   useEffect(() => {
     fetchSettings();
     fetchMedia();
-  }, [fetchSettings, fetchMedia]);
+    fetchAds();
+  }, [fetchSettings, fetchMedia, fetchAds]);
   const publishedArticles = articles.filter(a => a.status === 'Published').slice(0, 3);
   const activeDoctors = doctors.filter(d => d.status === 'Aktif').slice(0, 4);
   const displayServices = (services || []).filter(s => s.status === 'Aktif').slice(0, 3);
   const activeAds = (ads || []).filter(a => a.status === 'Aktif');
   const [showPromoPopup, setShowPromoPopup] = useState(true);
   const [currentPromoIndex, setCurrentPromoIndex] = useState(0);
+  const [promoImgError, setPromoImgError] = useState(false);
   const currentPromo = activeAds[currentPromoIndex] || activeAds[0];
+
+  const rawPromoImage = currentPromo ? (currentPromo.image || (currentPromo as any).imageUrl) : "";
+  const promoImgSrc = resolveImageUrl(rawPromoImage);
+
+  // Reset image error state whenever active ad changes
+  useEffect(() => {
+    setPromoImgError(false);
+  }, [currentPromo?.id, currentPromoIndex]);
 
   // Disable body scroll when promo popup is active & handle Escape key
   useEffect(() => {
@@ -399,56 +420,41 @@ export default function Home() {
 
               {/* Scrollable Container if screen is small */}
               <div className="overflow-y-auto">
-                {/* Visual Header / Banner */}
-                {currentPromo.image ? (
-                  <div className="relative h-48 sm:h-56 w-full overflow-hidden bg-slate-100 group">
-                    <img
-                      src={currentPromo.image}
-                      alt={currentPromo.title}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/30 to-transparent pointer-events-none" />
-                    
-                    {/* Top badges */}
-                    <div className="absolute top-3.5 left-3.5 z-10 flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/90 backdrop-blur-md text-white text-xs font-bold shadow-md border border-white/20">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                        {currentPromo.badge || "Promo Spesial"}
-                      </span>
-                    </div>
+                {/* Visual Header / Banner Image */}
+                <div className="relative h-52 sm:h-64 w-full overflow-hidden bg-slate-900 group">
+                  <img
+                    src={!promoImgError && promoImgSrc ? promoImgSrc : DEFAULT_PROMO_IMAGE}
+                    alt={currentPromo.title}
+                    onError={() => setPromoImgError(true)}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    loading="eager"
+                    decoding="async"
+                  />
+                  {/* Atmospheric overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/25 to-transparent pointer-events-none" />
+                  
+                  {/* Top badges */}
+                  <div className="absolute top-3.5 left-3.5 z-10 flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/90 backdrop-blur-md text-white text-xs font-bold shadow-md border border-white/20">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                      {currentPromo.badge || "Promo Spesial"}
+                    </span>
+                  </div>
 
-                    {/* Bottom overlay text */}
-                    <div className="absolute bottom-3 left-4 right-4 z-10 text-white">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-300">RSIA Sayang Ibu Batusangkar</p>
-                    </div>
+                  {/* Watermark in banner */}
+                  <MediaWatermark size="sm" />
+
+                  {/* Bottom overlay text on banner */}
+                  <div className="absolute bottom-3 left-4 right-4 z-10 text-white">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-300 mb-0.5">RSIA Sayang Ibu Batusangkar</p>
+                    <h4 className="text-lg sm:text-xl font-bold font-heading line-clamp-1 leading-tight text-white drop-shadow-md">
+                      {currentPromo.title}
+                    </h4>
                   </div>
-                ) : (
-                  <div className="bg-gradient-to-br from-rose-500 via-primary to-amber-500 p-6 sm:p-8 text-white relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/4 pointer-events-none" />
-                    <div className="relative z-10">
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-amber-200 text-xs font-semibold mb-3 border border-white/20">
-                        <Gift className="w-3.5 h-3.5 text-amber-300" />
-                        <span>{currentPromo.badge || "Promo Spesial"}</span>
-                      </div>
-                      <p className="text-xs font-medium uppercase tracking-wider text-white/80">RSIA Sayang Ibu Batusangkar</p>
-                      <h4 className="text-xl sm:text-2xl font-bold font-heading mt-1 leading-tight text-white drop-shadow-sm">
-                        {currentPromo.title}
-                      </h4>
-                    </div>
-                  </div>
-                )}
+                </div>
 
                 {/* Content Body */}
                 <div className="p-5 sm:p-7 space-y-4">
-                  {/* If image exists, render title here */}
-                  {currentPromo.image && (
-                    <div>
-                      <h4 className="text-xl sm:text-2xl font-bold font-heading text-slate-900 leading-tight">
-                        {currentPromo.title}
-                      </h4>
-                    </div>
-                  )}
-
                   {/* Promo Description */}
                   <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
                     {currentPromo.content}
